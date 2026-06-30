@@ -36,7 +36,7 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// ĐÃ THAY MỚI: TỐI ƯU ĐỒNG BỘ LOCALCONFIG.JSON - FIX TRIỆT ĐỂ 404
+// TỐI ƯU ĐỒNG BỘ LOCALCONFIG.JSON
 // ==========================================
 const sendLocalConfig = (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -57,27 +57,12 @@ const sendLocalConfig = (req, res) => {
         "extension": {
             "cdn_backup": "https://server-proxy-v2c0.onrender.com/",
             "retry_count": 0,
-            "maintenance_mode": false // ĐỂ FALSE ĐỂ VÀO THẲNG GAME KHÔNG BỊ CHẶN BẢO TRÌ
+            "maintenance_mode": false
         }
     };
 
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
-
-// ĐÁNH CHẶN TOÀN DIỆN DIỆN RỘNG: Bất cứ request nào chứa các từ khóa này đều được trả file config ngay lập tức
-app.use((req, res, next) => {
-    const url = req.path.toLowerCase();
-    if (url.includes('localconfig') || url.includes('checkversion') || url.includes('query') || url.includes('version')) {
-        return sendLocalConfig(req, res);
-    }
-    next();
-});
-
-// Định tuyến dự phòng
-app.get('/localconfig.json', sendLocalConfig);
-app.get('/CheckVersion*', sendLocalConfig);
-app.get('/query*', sendLocalConfig);
-app.get('/version*', sendLocalConfig);
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
 const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
@@ -113,7 +98,7 @@ const renderNotificationPage = (title, message, isSuccess = false, type = "error
 };
 
 // ==========================================
-// GIAO DIỆN TRANG CHỦ KÍCH HOẠT KEY
+// CÁC ĐƯỜNG DẪN HỆ THỐNG QUẢN TRỊ & KÍCH HOẠT KEY
 // ==========================================
 app.get('/', (req, res) => {
     res.send(`
@@ -226,7 +211,6 @@ app.post('/activate', (req, res) => {
     `);
 });
 
-// Trang Đăng nhập Quản trị viên
 app.get('/login', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -269,7 +253,6 @@ app.post('/login', (req, res) => {
     }
 });
 
-// Giao diện quản trị Admin điều phối hệ thống
 app.get('/admin', (req, res) => {
     let tableRows = keyDatabase.map((k, index) => {
         let statusColor = "#1890ff";
@@ -411,7 +394,6 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-// Xử lý hành động đơn lẻ trên từng dòng key
 app.post('/admin/action/single', (req, res) => {
     const { index, actionType } = req.body;
     let idx = parseInt(index);
@@ -452,7 +434,6 @@ app.post('/admin/action/single', (req, res) => {
     res.redirect('/admin');
 });
 
-// Xử lý hành động hàng loạt hoặc tạo mới trên Admin
 app.post('/admin/action/global', (req, res) => {
     const { globalAction, timeAmount, timeUnit } = req.body;
 
@@ -490,7 +471,6 @@ app.post('/admin/action/global', (req, res) => {
     res.redirect('/admin');
 });
 
-// API xác thực cho game
 app.get('/check-auth', (req, res) => {
     const id = req.query.id;
     if (!id) return res.status(400).json({ status: "error" });
@@ -510,6 +490,15 @@ app.get('/check-auth', (req, res) => {
 });
 
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
+
+// ==========================================
+// BƯỚC ĐỘT PHÁ Ở ĐÂY: LƯỚI QUÉT CUỐI CÙNG BẮT TOÀN BỘ MỌI REQUEST CỦA GAME (CATCH-ALL)
+// Đặt dưới cùng để không ghi đè lên tính năng quản trị Admin của bạn
+// ==========================================
+app.all('*', (req, res) => {
+    // Dù game gọi đường dẫn nào, đều trả thẳng file config JSON để fix 404
+    sendLocalConfig(req, res);
+});
 
 setInterval(() => {
     http.get(`http://localhost:${PORT}/ping`, () => {}).on("error", () => {});
