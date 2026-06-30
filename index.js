@@ -1,5 +1,5 @@
 const express = require('express');
-const app = Pattern = express();
+const app = express(); // Đã tối ưu cú pháp khởi tạo gọn gàng
 const http = require('http');
 const PORT = process.env.PORT || 3000;
 
@@ -67,11 +67,11 @@ const sendLocalConfig = (req, res) => {
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
-// Đăng ký toàn bộ các endpoint cấu hình để sửa lỗi 404 từ client game
+// ĐÃ NÂNG CẤP: Thay thế regex linh hoạt chấp nhận cả đường dẫn gốc lẫn tham số mở rộng để sửa lỗi 404 từ client game
 app.get('/localconfig.json', sendLocalConfig);
-app.get('/CheckVersion/*', sendLocalConfig);
-app.get('/query/*', sendLocalConfig);
-app.get('/version/*', sendLocalConfig);
+app.get(/^\/CheckVersion(\/.*)?$/, sendLocalConfig);
+app.get(/^\/query(\/.*)?$/, sendLocalConfig);
+app.get(/^\/version(\/.*)?$/, sendLocalConfig);
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
 const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
