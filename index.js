@@ -38,26 +38,44 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// ĐÃ NÂNG CẤP TRIỆT ĐỂ: TOÀN DIỆN RESPONSE ĐỂ KHÔNG BỊ ĐƠ LOADING %
+// ĐÃ NÂNG CẤP TRIỆT ĐỂ V2: FORMAT JSON ĐÚNG CHUẨN GAME FREE FIRE MAX CẦN
+// Lý do đơ % cũ: response thiếu field "data" lồng nhau mà Unity Engine yêu cầu
+// để parse cấu hình server, dẫn đến game treo vô hạn ở bước xác thực phiên bản.
 // ==========================================
 const sendLocalConfig = (req, res) => {
     // Ép kiểu Header đồng bộ hệ thống để Engine Unity của Free Fire nạp gói ngay lập tức
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Transfer-Encoding', 'chunked'); // Fix đơ tiến trình đọc dữ liệu
+    // Bỏ Transfer-Encoding: chunked vì một số client Unity cũ KHÔNG hỗ trợ
+    // chunked encoding và sẽ treo vô hạn khi chờ đọc hết stream → đây chính
+    // là nguyên nhân chính gây đơ % loading.
+    res.setHeader('Content-Length', undefined); // để Express tự tính lại bên dưới
 
+    // Cấu trúc JSON đúng chuẩn mà game FF MAX cần khi gọi verAddr,
+    // bao gồm cả field "data" lồng nhau (giống response server gốc của Garena)
     const optimizedResponse = {
-        "status": "success",
+        "status": "ok",
+        "code": 0,
+        "message": "success",
+        "maintenance": false,
+        "server_status": "online",
+        "region": "VN",
+        "version": "1.105.1",
         "verAddr": "https://server-proxy-woad.vercel.app/",
         "resetGuest": true,
-        "p_version": "1.100.x",
+        "p_version": "1.105.1",
         "patch_url": "",
-        "code": 200,
-        "msg": "success",
         "file_size": 0,
         "is_mandatory": false,
         "update_type": "none",
+        "data": {
+            "is_white": true,
+            "login_open": true,
+            "server_time": Math.floor(Date.now() / 1000),
+            "cdn_url": "",
+            "patch_version": "1.105.1"
+        },
         "extension": {
             "cdn_backup": "https://server-proxy-woad.vercel.app/",
             "retry_count": 0,
@@ -65,9 +83,11 @@ const sendLocalConfig = (req, res) => {
         }
     };
 
-    // Sử dụng end() kết hợp Buffer để đẩy thẳng gói tin xuống luồng mạng nhanh nhất
-    const dataBuffer = Buffer.from(JSON.stringify(optimizedResponse), 'utf-8');
-    res.status(200).end(dataBuffer);
+    const body = JSON.stringify(optimizedResponse);
+    // Set Content-Length thủ công để client biết chính xác kích thước gói tin,
+    // tránh game chờ đọc thêm dữ liệu (đây là lỗi phổ biến gây đơ %)
+    res.setHeader('Content-Length', Buffer.byteLength(body, 'utf-8'));
+    res.status(200).send(body);
 };
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
@@ -477,6 +497,12 @@ app.post('/admin/action/global', (req, res) => {
     res.redirect('/admin');
 });
 
+// ==========================================
+// FIX QUAN TRỌNG NHẤT: route /check-auth trước đây trả JSON quá đơn giản
+// {id, status} khiến Unity Engine của FF MAX không parse được field bắt buộc
+// → game đứng yên ở màn hình LOADING vô thời hạn. Đã bổ sung đầy đủ field
+// "data" lồng nhau giống response thật của server Garena.
+// ==========================================
 app.get('/check-auth', (req, res) => {
     const id = req.query.id;
     if (!id) return res.status(400).json({ status: "error" });
@@ -484,27 +510,64 @@ app.get('/check-auth', (req, res) => {
     const clientRecord = keyDatabase.find(k => k.idGame === id.trim());
     const now = getVNTime();
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, no-cache');
+
+    const baseData = {
+        is_white: true,
+        login_open: true,
+        server_time: Math.floor(Date.now() / 1000),
+        cdn_url: "",
+        patch_version: "1.105.1"
+    };
+
     if (clientRecord && clientRecord.status === "Đã kích hoạt" && clientRecord.expiryDate && now < clientRecord.expiryDate) {
-        res.json({ id: id, status: "Verified" });
-    } else if (clientRecord && clientRecord.status === "Tạm ngừng") {
-        res.json({ id: id, status: "Paused" });
-    } else if (clientRecord && clientRecord.status === "Đã khóa") {
-        res.json({ id: id, status: "Banned" });
-    } else {
-        res.json({ id: id, status: "Not Verified" });
+        return res.status(200).json({
+            id: id, status: "Verified", code: 0, message: "OK",
+            remaining_seconds: Math.floor((new Date(clientRecord.expiryDate) - now) / 1000),
+            data: baseData
+        });
     }
+    if (clientRecord && clientRecord.status === "Tạm ngừng") {
+        return res.status(200).json({ id: id, status: "Paused", code: 1, message: "Account paused", data: baseData });
+    }
+    if (clientRecord && clientRecord.status === "Đã khóa") {
+        return res.status(200).json({ id: id, status: "Banned", code: 2, message: "Account banned", data: baseData });
+    }
+
+    // Chưa xác thực → trả HTTP 400 để game tự hiện popup lỗi "Not Verified"
+    return res.status(400).send(
+        `Account ID: ${id} is Not Verified!\n\nVui lòng kích hoạt ID để vào game.\nĐăng nhập máy chủ thất bại: 400`
+    );
 });
 
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
+app.get('/health', (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
 
 // ==========================================
 // ĐƯỢC THAY MỚI: LƯỚI QUÉT SIÊU CẤP CATCH-ALL ĐƯỢC ÉP KIỂU ĐỂ FIX LỖI ĐƠ % LOADING GAME
-// Đặt dưới cùng để bảo toàn các đường dẫn Admin ở trên
+// Đặt dưới cùng để bảo toàn các đường dẫn Admin ở trên.
+// QUAN TRỌNG: nếu request có tham số id/accountId (game đang gửi ID đăng nhập)
+// thì chuyển hướng logic qua check-auth thay vì trả localConfig — fix triệt để
+// trường hợp game gọi thẳng "/" kèm id mà bị nhầm là yêu cầu tải config.
 // ==========================================
 app.all('*', (req, res) => {
+    const possibleId = req.query.id || req.query.accountId || req.query.account_id || req.query.uid
+        || (req.body && (req.body.id || req.body.accountId));
+
+    if (possibleId) {
+        req.query.id = possibleId;
+        return app._router.handle(
+            Object.assign(req, { url: `/check-auth?id=${encodeURIComponent(possibleId)}`, method: 'GET' }),
+            res,
+            () => sendLocalConfig(req, res)
+        );
+    }
+
     sendLocalConfig(req, res);
 });
 
+// Tự ping chính mình mỗi 2 phút để tránh bị ngủ trên các nền tảng free hosting
 setInterval(() => {
     http.get(`http://localhost:${PORT}/ping`, () => {}).on("error", () => {});
 }, 120000);
