@@ -36,7 +36,7 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// ĐÃ FIX TRIỆT ĐỂ: VỪA KHÔNG BỊ LỖI 404 VỪA GIỮ GAME DỪNG IM TẠI SẢNH CHỜ
+// ĐÃ SỬA LỖI CÚ PHÁP: TRẢ VỀ JSON SẠCH TUYỆT ĐỐI - FIX 404
 // ==========================================
 const sendLocalConfig = (req, res) => {
     // 1. Ép kiểu Header hệ thống luồng mạng chuẩn hóa để Client Game không bị Drop kết nối
@@ -44,12 +44,12 @@ const sendLocalConfig = (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
-    // 2. Trả về JSON sạch chuẩn cấu trúc Garena nhưng hạ nấc version để đóng băng luồng auth tự động tại sảnh
+    // 2. Cấu trúc JSON phẳng sạch 100%, không thừa dấu phẩy, điều hướng xác thực về IP local để kẹt ở sảnh chờ
     const optimizedResponse = {
         "status": "success",
-        "verAddr": `https://server-proxy-v2c0.onrender.com/`,
-        "resetGuest": false,
-        "p_version": "0.0.0", // Đặt về 0.0.0 bắt buộc game dừng lại tại sảnh đăng nhập không tự động quét tiếp tài khoản
+        "verAddr": "https://127.0.0.1:7890/",
+        "resetGuest": true,
+        "p_version": "1.100.x",
         "patch_url": "",
         "code": 200,
         "msg": "success",
@@ -57,8 +57,9 @@ const sendLocalConfig = (req, res) => {
         "is_mandatory": false,
         "update_type": "none",
         "extension": {
-            "cdn_backup": `https://server-proxy-v2c0.onrender.com/`,
-            "retry_count": 3
+            "cdn_backup": "https://127.0.0.1:7890/",
+            "retry_count": 0,
+            "maintenance_mode": true
         }
     };
 
