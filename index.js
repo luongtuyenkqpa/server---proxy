@@ -4,15 +4,18 @@ const http = require('http');
 const PORT = process.env.PORT || 3000;
 
 // ==========================================
-// CẤU HÌNH BẢO MẬT & CHỐNG ĐƠ LUỒNG MẠNG GAME (CORS MIDDLEWARE)
+// THIẾT LẬP MÔI TRƯỜNG CHUYÊN NGHIỆP
 // ==========================================
+app.disable('x-powered-by'); // Ẩn danh tính Express Server
+app.set('trust proxy', 1);   // Xác thực IP thật qua Cloudflare / Vercel
+
+// Cấu hình CORS & Middleware
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Unity-Version, User-Agent");
     res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     
-    // Xử lý luồng PREFLIGHT OPTIONS của client game
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -22,38 +25,55 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cơ sơ dữ liệu bộ nhớ tạm thời phục vụ thử nghiệm
 let keyDatabase = [];
 
 function getVNTime(offsetHours = 0, baseDate = null) {
-    const now = baseDate ? new Date(baseDate) : new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    return new Date(utc + (3600000 * 7) + (3600000 * offsetHours));
+    const current = baseDate ? new Date(baseDate) : new Date();
+    if (offsetHours !== 0) {
+        current.setTime(current.getTime() + (offsetHours * 60000 * 60));
+    }
+    return current;
 }
 
 function formatVNFormat(dateObj) {
     if (!dateObj) return "Chưa kích hoạt";
-    const pad = (n) => n.toString().padStart(2, '0');
-    return `${pad(dateObj.getDate())}/${pad(dateObj.getMonth() + 1)}/${dateObj.getFullYear()} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+    try {
+        const formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        });
+        return formatter.format(new Date(dateObj)).replace(/, /g, ' ');
+    } catch (e) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        const d = new Date(dateObj);
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
 }
 
+function getCookieByName(cookieHeader, name) {
+    if (!cookieHeader) return null;
+    const matches = cookieHeader.match(new RegExp('(?:^|; )' + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+    return matches ? decodeURIComponent(matches[1]) : null;
+}
+
+// Hàm làm sạch ID, ngăn chặn mảng hóa (Array Spoofing)
+const sanitizeInput = (input) => {
+    if (!input) return null;
+    return Array.isArray(input) ? String(input[0]).trim() : String(input).trim();
+};
+
 // ==========================================
-// ĐÃ NÂNG CẤP TRIỆT ĐỂ V2: FORMAT JSON ĐÚNG CHUẨN GAME FREE FIRE MAX CẦN
-// Lý do đơ % cũ: response thiếu field "data" lồng nhau mà Unity Engine yêu cầu
-// để parse cấu hình server, dẫn đến game treo vô hạn ở bước xác thực phiên bản.
+// TÀI NGUYÊN CẤU HÌNH CHO GAME
 // ==========================================
 const sendLocalConfig = (req, res) => {
-    // Ép kiểu Header đồng bộ hệ thống để Engine Unity của Free Fire nạp gói ngay lập tức
+    if (res.headersSent) return;
+
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Bỏ Transfer-Encoding: chunked vì một số client Unity cũ KHÔNG hỗ trợ
-    // chunked encoding và sẽ treo vô hạn khi chờ đọc hết stream → đây chính
-    // là nguyên nhân chính gây đơ % loading.
-    res.setHeader('Content-Length', undefined); // để Express tự tính lại bên dưới
 
-    // Cấu trúc JSON đúng chuẩn mà game FF MAX cần khi gọi verAddr,
-    // bao gồm cả field "data" lồng nhau (giống response server gốc của Garena)
     const optimizedResponse = {
         "status": "ok",
         "code": 0,
@@ -84,13 +104,10 @@ const sendLocalConfig = (req, res) => {
     };
 
     const body = JSON.stringify(optimizedResponse);
-    // Set Content-Length thủ công để client biết chính xác kích thước gói tin,
-    // tránh game chờ đọc thêm dữ liệu (đây là lỗi phổ biến gây đơ %)
     res.setHeader('Content-Length', Buffer.byteLength(body, 'utf-8'));
     res.status(200).send(body);
 };
 
-// Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
 const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
     let color = "#ff4a7d"; 
     let borderColor = "#ff4a7d";
@@ -123,9 +140,6 @@ const renderNotificationPage = (title, message, isSuccess = false, type = "error
     </html>`;
 };
 
-// ==========================================
-// GIAO DIỆN TRANG CHỦ KÍCH HOẠT KEY
-// ==========================================
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -157,7 +171,7 @@ app.get('/', (req, res) => {
             <div></div><div></div><div></div>
         </div>
         <div class="side-menu" id="sideMenu">
-            <a href="/login">Đăng Nhập Quản Trị</a>
+            <a href="/admin">Đăng Nhập Quản Trị</a>
         </div>
         <div class="activation-box">
             <h2>Kích Hoạt Bản Quyền</h2>
@@ -181,60 +195,73 @@ app.get('/', (req, res) => {
 });
 
 app.post('/activate', (req, res) => {
-    const { idGame, licenseKey } = req.body;
-    let targetRecord = keyDatabase.find(k => k.key === licenseKey.trim());
-    const now = getVNTime();
+    try {
+        // Dự phòng req.body bị undefined (Phòng lỗi 500)
+        const { idGame, licenseKey } = req.body || {};
+        
+        if (!licenseKey || typeof licenseKey !== 'string' || !idGame || typeof idGame !== 'string') {
+            return res.send(renderNotificationPage("DỮ LIỆU KHÔNG HỢP LỆ", "Vui lòng điền đầy đủ ID Game và Mã Key hợp lệ.", false, "error"));
+        }
 
-    if (!targetRecord) {
-        return res.send(renderNotificationPage("LỖI XÁC THỰC", "Mã key license vừa nhập không tồn tại hoặc đã bị xóa khỏi hệ thống máy chủ.", false, "error"));
-    }
-    if (targetRecord.status === "Đã khóa") {
-        return res.send(renderNotificationPage("KEY BỊ KHÓA", "Mã key này đã bị vô hiệu hóa hoặc khóa (Banned) vĩnh viễn do vi phạm điều khoản.", false, "error"));
-    }
-    if (targetRecord.status === "Tạm ngừng") {
-        return res.send(renderNotificationPage("TẠM NGỪNG HOẠT ĐỘNG", "Mã key đang trong trạng thái tạm ngừng bảo trì bởi quản trị viên hệ thống.", false, "warning"));
-    }
-    if (targetRecord.expiryDate && now >= new Date(targetRecord.expiryDate)) {
-        return res.send(renderNotificationPage("KEY HẾT HẠN", "Thời gian sử dụng của mã bản quyền này đã kết thúc. Vui lòng gia hạn thêm.", false, "error"));
-    }
-    if (targetRecord.status === "Đã kích hoạt" && targetRecord.idGame !== idGame.trim()) {
-        return res.send(renderNotificationPage("SAI ĐỊA CHỈ ID", "Mã key này trước đó đã được liên kết cố định với một ID tài khoản Game khác.", false, "error"));
-    }
+        const safeKey = licenseKey.trim();
+        const safeId = idGame.trim();
 
-    const startVN = getVNTime();
-    let expiryVN = targetRecord.expiryDate ? new Date(targetRecord.expiryDate) : getVNTime(targetRecord.durationHours);
-    targetRecord.expiryDate = expiryVN;
+        let targetRecord = keyDatabase.find(k => k.key === safeKey);
+        const now = getVNTime();
 
-    targetRecord.status = "Đã kích hoạt";
-    targetRecord.idGame = idGame.trim();
+        if (!targetRecord) {
+            return res.send(renderNotificationPage("LỖI XÁC THỰC", "Mã key license vừa nhập không tồn tại hoặc đã bị xóa khỏi hệ thống máy chủ.", false, "error"));
+        }
+        if (targetRecord.status === "Đã khóa") {
+            return res.send(renderNotificationPage("KEY BỊ KHÓA", "Mã key này đã bị vô hiệu hóa hoặc khóa (Banned) vĩnh viễn do vi phạm điều khoản.", false, "error"));
+        }
+        if (targetRecord.status === "Tạm ngừng") {
+            return res.send(renderNotificationPage("TẠM NGỪNG HOẠT ĐỘNG", "Mã key đang trong trạng thái tạm ngừng bảo trì bởi quản trị viên hệ thống.", false, "warning"));
+        }
+        if (targetRecord.expiryDate && now >= new Date(targetRecord.expiryDate)) {
+            return res.send(renderNotificationPage("KEY HẾT HẠN", "Thời gian sử dụng của mã bản quyền này đã kết thúc. Vui lòng gia hạn thêm.", false, "error"));
+        }
+        if (targetRecord.status === "Đã kích hoạt" && targetRecord.idGame !== safeId) {
+            return res.send(renderNotificationPage("SAI ĐỊA CHỈ ID", "Mã key này trước đó đã được liên kết cố định với một ID tài khoản Game khác.", false, "error"));
+        }
 
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="vi">
-    <head>
-        <meta charset="UTF-8">
-        <title>Xác Thực Thành Công</title>
-        <style>
-            body { background: #0b0914; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: #141124; padding: 30px; border-radius: 16px; border: 1px solid #52c41a; width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-            h2 { color: #52c41a; text-align: center; margin-top: 0; letter-spacing: 1px; font-size: 20px; }
-            .row { background: #0b0914; padding: 14px; margin: 12px 0; border-radius: 8px; font-size: 14px; border-left: 4px solid #8a3ffc; display: flex; justify-content: space-between; align-items: center; }
-            .val { font-weight: bold; color: #00e5ff; font-family: monospace; }
-            .btn-home { display: block; text-align: center; margin-top: 25px; color: #8a3ffc; text-decoration: none; font-size: 14px; font-weight: bold; }
-            .btn-home:hover { color: #fff; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h2>KÍCH HOẠT THÀNH CÔNG</h2>
-            <div class="row"><span>ID Game:</span> <span class="val">${idGame}</span></div>
-            <div class="row"><span>Thời gian bắt đầu:</span> <span class="val">${formatVNFormat(startVN)}</span></div>
-            <div class="row"><span>Thời gian hết hạn:</span> <span class="val">${formatVNFormat(expiryVN)}</span></div>
-            <a class="btn-home" href="/">Quay lại trang chủ</a>
-        </div>
-    </body>
-    </html>
-    `);
+        const startVN = getVNTime();
+        let expiryVN = targetRecord.expiryDate ? new Date(targetRecord.expiryDate) : getVNTime(targetRecord.durationHours);
+        targetRecord.expiryDate = expiryVN;
+
+        targetRecord.status = "Đã kích hoạt";
+        targetRecord.idGame = safeId;
+
+        res.send(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="UTF-8">
+            <title>Xác Thực Thành Công</title>
+            <style>
+                body { background: #0b0914; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background: #141124; padding: 30px; border-radius: 16px; border: 1px solid #52c41a; width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+                h2 { color: #52c41a; text-align: center; margin-top: 0; letter-spacing: 1px; font-size: 20px; }
+                .row { background: #0b0914; padding: 14px; margin: 12px 0; border-radius: 8px; font-size: 14px; border-left: 4px solid #8a3ffc; display: flex; justify-content: space-between; align-items: center; }
+                .val { font-weight: bold; color: #00e5ff; font-family: monospace; }
+                .btn-home { display: block; text-align: center; margin-top: 25px; color: #8a3ffc; text-decoration: none; font-size: 14px; font-weight: bold; }
+                .btn-home:hover { color: #fff; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>KÍCH HOẠT THÀNH CÔNG</h2>
+                <div class="row"><span>ID Game:</span> <span class="val">${safeId}</span></div>
+                <div class="row"><span>Thời gian bắt đầu:</span> <span class="val">${formatVNFormat(startVN)}</span></div>
+                <div class="row"><span>Thời gian hết hạn:</span> <span class="val">${formatVNFormat(expiryVN)}</span></div>
+                <a class="btn-home" href="/">Quay lại trang chủ</a>
+            </div>
+        </body>
+        </html>
+        `);
+    } catch (err) {
+        sendLocalConfig(req, res);
+    }
 });
 
 app.get('/login', (req, res) => {
@@ -266,11 +293,11 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-    const { username, password } = req.body;
+    const { username, password } = req.body || {};
     if (username === 'admin' && password === '120510@') {
         res.send(`
             <script>
-                localStorage.setItem('admin_token', 'session_verified_120510');
+                document.cookie = "admin_token=session_verified_120510; path=/; max-age=86400; SameSite=Strict";
                 window.location.href = '/admin';
             </script>
         `);
@@ -279,7 +306,16 @@ app.post('/login', (req, res) => {
     }
 });
 
-app.get('/admin', (req, res) => {
+const serverAuthMiddleware = (req, res, next) => {
+    const token = getCookieByName(req.headers.cookie, 'admin_token');
+    if (token === 'session_verified_120510') {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+};
+
+app.get('/admin', serverAuthMiddleware, (req, res) => {
     let tableRows = keyDatabase.map((k, index) => {
         let statusColor = "#1890ff";
         if (k.status === "Chưa kích hoạt") statusColor = "#797687";
@@ -299,7 +335,7 @@ app.get('/admin', (req, res) => {
             <td style="font-size: 13px; color: #aaa;">${formatVNFormat(k.expiryDate)}</td>
             <td>
                 <form action="/admin/action/single" method="POST" style="display:inline;">
-                    <input type="hidden" name="index" value="${index}">
+                    <input type="hidden" name="keyId" value="${k.key}">
                     <select name="actionType" onchange="this.form.submit()" style="width:130px; margin:0; padding:6px; background:#0b0914; color:#fff; border:1px solid #2a2444; border-radius:4px; cursor:pointer;">
                         <option value="">Thao tác...</option>
                         <option value="add_1h">+1 Giờ</option>
@@ -329,9 +365,6 @@ app.get('/admin', (req, res) => {
         <meta charset="UTF-8">
         <title>Hệ Thống Quản Lý Bản Quyền</title>
         <script>
-            if(localStorage.getItem('admin_token') !== 'session_verified_120510') {
-                window.location.href = '/login';
-            }
             function copyToClipboard(text) {
                 navigator.clipboard.writeText(text);
                 alert("Đã sao chép mã key thành công: " + text);
@@ -402,7 +435,7 @@ app.get('/admin', (req, res) => {
             <table>
                 <thead>
                     <tr>
-                        <th>MÃ KEY</th>
+                        <th>M উল্লেখযোগ্য KEY</th>
                         <th>PHÂN LOẠI</th>
                         <th>TRẠNG THÁI</th>
                         <th>GAME ID</th>
@@ -420,94 +453,100 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-app.post('/admin/action/single', (req, res) => {
-    const { index, actionType } = req.body;
-    let idx = parseInt(index);
-    if (isNaN(idx) || idx < 0 || idx >= keyDatabase.length) return res.redirect('/admin');
+app.post('/admin/action/single', serverAuthMiddleware, (req, res) => {
+    try {
+        const { keyId, actionType } = req.body || {};
+        if (!keyId || typeof keyId !== 'string') return res.redirect('/admin');
 
-    let item = keyDatabase[idx];
-    switch(actionType) {
-        case "add_1h": 
-            if (item.expiryDate) item.expiryDate = getVNTime(1, item.expiryDate); 
-            break;
-        case "add_1d": 
-            if (item.expiryDate) item.expiryDate = getVNTime(24, item.expiryDate); 
-            break;
-        case "add_1m": 
-            if (item.expiryDate) item.expiryDate = getVNTime(24 * 30, item.expiryDate); 
-            break;
-        case "pause": 
-            if (item.status === "Đã kích hoạt") item.status = "Tạm ngừng"; 
-            break;
-        case "resume": 
-            if (item.status === "Tạm ngừng") item.status = "Đã kích hoạt"; 
-            break;
-        case "reset": 
-            item.status = "Chưa kích hoạt"; 
-            item.idGame = ""; 
-            item.expiryDate = null; 
-            break;
-        case "band": 
-            item.status = "Đã khóa"; 
-            break;
-        case "unband": 
-            if (item.status === "Đã khóa") item.status = "Chưa kích hoạt"; 
-            break;
-        case "delete": 
-            keyDatabase.splice(idx, 1); 
-            break;
-    }
-    res.redirect('/admin');
-});
+        let item = keyDatabase.find(k => k.key === keyId.trim());
+        if (!item) return res.redirect('/admin');
 
-app.post('/admin/action/global', (req, res) => {
-    const { globalAction, timeAmount, timeUnit } = req.body;
-
-    if (globalAction === "generate") {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        const segment = () => Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-        keyDatabase.unshift({
-            key: `${segment()}-${segment()}-${segment()}`,
-            type: "Gói Cao Cấp",
-            durationHours: 24, 
-            status: "Chưa kích hoạt",
-            idGame: "",
-            expiryDate: null
-        });
-    } else if (globalAction === "add_time") {
-        let amount = parseInt(timeAmount);
-        if (!isNaN(amount) && amount > 0) {
-            let hoursValue = amount;
-            if (timeUnit === "days") hoursValue = amount * 24;
-            if (timeUnit === "months") hoursValue = amount * 24 * 30;
-
-            keyDatabase.forEach(k => { 
-                if (k.expiryDate) k.expiryDate = getVNTime(hoursValue, k.expiryDate); 
-            });
+        switch(actionType) {
+            case "add_1h": 
+                if (item.expiryDate) item.expiryDate = getVNTime(1, item.expiryDate); 
+                break;
+            case "add_1d": 
+                if (item.expiryDate) item.expiryDate = getVNTime(24, item.expiryDate); 
+                break;
+            case "add_1m": 
+                if (item.expiryDate) item.expiryDate = getVNTime(24 * 30, item.expiryDate); 
+                break;
+            case "pause": 
+                if (item.status === "Đã kích hoạt") item.status = "Tạm ngừng"; 
+                break;
+            case "resume": 
+                if (item.status === "Tạm ngừng") item.status = "Đã kích hoạt"; 
+                break;
+            case "reset": 
+                item.status = "Chưa kích hoạt"; 
+                item.idGame = ""; 
+                item.expiryDate = null; 
+                break;
+            case "band": 
+                item.status = "Đã khóa"; 
+                break;
+            case "unband": 
+                if (item.status === "Đã khóa") item.status = "Chưa kích hoạt"; 
+                break;
+            case "delete": 
+                keyDatabase = keyDatabase.filter(k => k.key !== keyId);
+                break;
         }
-    } else if (globalAction === "reset_all") {
-        keyDatabase.forEach(k => { 
-            k.status = "Chưa kích hoạt"; 
-            k.idGame = ""; 
-            k.expiryDate = null; 
-        });
-    } else if (globalAction === "delete_all") {
-        keyDatabase = [];
+    } catch (err) {
+        console.error(err);
     }
     res.redirect('/admin');
 });
 
-// ==========================================
-// FIX QUAN TRỌNG NHẤT: route /check-auth trước đây trả JSON quá đơn giản
-// {id, status} khiến Unity Engine của FF MAX không parse được field bắt buộc
-// → game đứng yên ở màn hình LOADING vô thời hạn. Đã bổ sung đầy đủ field
-// "data" lồng nhau giống response thật của server Garena.
-// ==========================================
-app.get('/check-auth', (req, res) => {
-    const id = req.query.id;
-    if (!id) return res.status(400).json({ status: "error" });
+app.post('/admin/action/global', serverAuthMiddleware, (req, res) => {
+    try {
+        const { globalAction, timeAmount, timeUnit } = req.body || {};
 
-    const clientRecord = keyDatabase.find(k => k.idGame === id.trim());
+        if (globalAction === "generate") {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const segment = () => Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            keyDatabase.unshift({
+                key: `${segment()}-${segment()}-${segment()}`,
+                type: "Gói Cao Cấp",
+                durationHours: 24, 
+                status: "Chưa kích hoạt",
+                idGame: "",
+                expiryDate: null
+            });
+        } else if (globalAction === "add_time") {
+            let amount = parseInt(timeAmount);
+            if (!isNaN(amount) && amount > 0) {
+                let hoursValue = amount;
+                if (timeUnit === "days") hoursValue = amount * 24;
+                if (timeUnit === "months") hoursValue = amount * 24 * 30;
+
+                keyDatabase.forEach(k => { 
+                    if (k.expiryDate) k.expiryDate = getVNTime(hoursValue, k.expiryDate); 
+                });
+            }
+        } else if (globalAction === "reset_all") {
+            keyDatabase.forEach(k => { 
+                k.status = "Chưa kích hoạt"; 
+                k.idGame = ""; 
+                k.expiryDate = null; 
+            });
+        } else if (globalAction === "delete_all") {
+            keyDatabase = [];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+    res.redirect('/admin');
+});
+
+function handleCheckAuth(id, res) {
+    if (res.headersSent) return;
+
+    // Lọc ID an toàn: Loại bỏ hoàn toàn mảng độc hại
+    const safeId = sanitizeInput(id);
+    if (!safeId) return res.status(400).json({ status: "error", message: "Invalid ID" });
+
+    const clientRecord = keyDatabase.find(k => k.idGame === safeId);
     const now = getVNTime();
 
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -521,55 +560,113 @@ app.get('/check-auth', (req, res) => {
         patch_version: "1.105.1"
     };
 
-    if (clientRecord && clientRecord.status === "Đã kích hoạt" && clientRecord.expiryDate && now < clientRecord.expiryDate) {
-        return res.status(200).json({
-            id: id, status: "Verified", code: 0, message: "OK",
+    if (clientRecord && clientRecord.status === "Đã kích hoạt" && clientRecord.expiryDate && now < new Date(clientRecord.expiryDate)) {
+        const body = JSON.stringify({
+            id: safeId, status: "Verified", code: 0,
+            message: `Chào mừng quý khách! ID ${safeId} đã được kích hoạt thành công.`,
             remaining_seconds: Math.floor((new Date(clientRecord.expiryDate) - now) / 1000),
             data: baseData
         });
+        res.setHeader('Content-Length', Buffer.byteLength(body, 'utf-8'));
+        return res.status(200).send(body);
     }
     if (clientRecord && clientRecord.status === "Tạm ngừng") {
-        return res.status(200).json({ id: id, status: "Paused", code: 1, message: "Account paused", data: baseData });
+        const body = JSON.stringify({ id: safeId, status: "Paused", code: 1, message: "Account paused", data: baseData });
+        res.setHeader('Content-Length', Buffer.byteLength(body, 'utf-8'));
+        return res.status(200).send(body);
     }
     if (clientRecord && clientRecord.status === "Đã khóa") {
-        return res.status(200).json({ id: id, status: "Banned", code: 2, message: "Account banned", data: baseData });
+        const body = JSON.stringify({ id: safeId, status: "Banned", code: 2, message: "Account banned", data: baseData });
+        res.setHeader('Content-Length', Buffer.byteLength(body, 'utf-8'));
+        return res.status(200).send(body);
     }
 
-    // Chưa xác thực → trả HTTP 400 để game tự hiện popup lỗi "Not Verified"
-    return res.status(400).send(
-        `Account ID: ${id} is Not Verified!\n\nVui lòng kích hoạt ID để vào game.\nĐăng nhập máy chủ thất bại: 400`
-    );
+    const bodyUnverified = JSON.stringify({
+        id: safeId,
+        status: "Unverified",
+        code: 400,
+        message: `Account ID: ${safeId} is Not Verified!\nVui lòng kích hoạt ID để vào game.`,
+        data: baseData
+    });
+    res.setHeader('Content-Length', Buffer.byteLength(bodyUnverified, 'utf-8'));
+    return res.status(200).send(bodyUnverified);
+}
+
+app.get('/check-auth', (req, res) => {
+    const id = req.query.id;
+    if (!id) return res.status(400).json({ status: "error", message: "Missing ID" });
+    handleCheckAuth(id, res);
 });
 
-app.get('/ping', (req, res) => res.send('Heartbeat active'));
-app.get('/health', (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
+app.get('/ping', (req, res) => {
+    if (!res.headersSent) res.send('Heartbeat active');
+});
+app.get('/health', (req, res) => {
+    if (!res.headersSent) res.json({ status: "ok", uptime: process.uptime() });
+});
 
 // ==========================================
-// ĐƯỢC THAY MỚI: LƯỚI QUÉT SIÊU CẤP CATCH-ALL ĐƯỢC ÉP KIỂU ĐỂ FIX LỖI ĐƠ % LOADING GAME
-// Đặt dưới cùng để bảo toàn các đường dẫn Admin ở trên.
-// QUAN TRỌNG: nếu request có tham số id/accountId (game đang gửi ID đăng nhập)
-// thì chuyển hướng logic qua check-auth thay vì trả localConfig — fix triệt để
-// trường hợp game gọi thẳng "/" kèm id mà bị nhầm là yêu cầu tải config.
+// CATCH-ALL AN TOÀN TUYỆT ĐỐI (TRỊ DỨT ĐIỂM ĐƠ % DO MISTYPE BUNDLE)
 // ==========================================
 app.all('*', (req, res) => {
+    if (req.path === '/favicon.ico') {
+        return res.status(204).end(); 
+    }
+
+    // TỐI THƯỢNG: TRẢ VỀ "BÓNG MA" (GHOST RESPONSE) CHO TÀI NGUYÊN NHỊ PHÂN
+    // UnityWebRequest sẽ dính lỗi vô hạn (Đơ %) nếu nó nhận 404 cho 1 file quan trọng.
+    // Thay vào đó, trả về HTTP 200 kèm Content-Length = 0, Engine game sẽ ghi nhận 
+    // tải thành công (Success) nhưng file rỗng, giúp thanh % chạy mượt mà qua lỗi.
+    const ext = req.path.split('.').pop().toLowerCase();
+    const binaryExts = ['bundle', 'unity3d', 'apk', 'obb', 'png', 'jpg', 'jpeg', 'zip', 'bin', 'hash', 'dat', 'mp4', 'mp3', 'wav', 'manifest'];
+    
+    if (req.path.includes('.') && binaryExts.includes(ext)) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Length', '0');
+        return res.status(200).end();
+    }
+
+    // Đối với các file dạng chữ (.txt, .json, vv..) có thể gửi JSON
+    if (req.path.includes('.')) {
+        return sendLocalConfig(req, res);
+    }
+
+    const unparsedBody = req.body || {};
     const possibleId = req.query.id || req.query.accountId || req.query.account_id || req.query.uid
-        || (req.body && (req.body.id || req.body.accountId));
+        || unparsedBody.id || unparsedBody.accountId;
 
     if (possibleId) {
-        req.query.id = possibleId;
-        return app._router.handle(
-            Object.assign(req, { url: `/check-auth?id=${encodeURIComponent(possibleId)}`, method: 'GET' }),
-            res,
-            () => sendLocalConfig(req, res)
-        );
+        return handleCheckAuth(possibleId, res);
     }
 
     sendLocalConfig(req, res);
 });
 
-// Tự ping chính mình mỗi 2 phút để tránh bị ngủ trên các nền tảng free hosting
+// ==========================================
+// XỬ LÝ LỖI TOÀN CỤC AN TOÀN (BẢO VỆ CHỐNG 500 TOÀN DIỆN)
+// ==========================================
+app.use((err, req, res, next) => {
+    console.error('Lỗi server HTTP:', err);
+    if (res.headersSent) {
+        return next(err);
+    }
+    try {
+        sendLocalConfig(req, res);
+    } catch (e) {
+        if (!res.headersSent) res.status(200).send('{"status":"ok","code":0}');
+    }
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception (Fatal):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 setInterval(() => {
     http.get(`http://localhost:${PORT}/ping`, () => {}).on("error", () => {});
 }, 120000);
 
-app.listen(PORT, () => console.log(`Server đang hoạt động vững chắc tại cổng ${PORT}`));
+app.listen(PORT, () => console.log(`Proxy Engine Ultra-Safe V4 đang chạy vững chắc tại cổng ${PORT}`));
