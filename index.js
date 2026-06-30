@@ -10,6 +10,7 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -19,7 +20,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cơ sở dữ liệu bộ nhớ tạm thời phục vụ thử nghiệm (Bắt đầu từ danh sách trống để hiển thị đúng số lượng thực tế)
+// Cơ sở dữ liệu bộ nhớ tạm thời phục vụ thử nghiệm
 let keyDatabase = [];
 
 function getVNTime(offsetHours = 0, baseDate = null) {
@@ -40,14 +41,52 @@ function formatVNFormat(dateObj) {
 const sendLocalConfig = (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.json({
+        "status": "success",
         "verAddr": `https://server-proxy-v2c0.onrender.com/`,
-        "resetGuest": true
+        "resetGuest": true,
+        "p_version": "1.100.x",
+        "patch_url": ""
     });
 };
 
+// Đăng ký toàn bộ các endpoint cấu hình để sửa lỗi 404 từ client game
 app.get('/localconfig.json', sendLocalConfig);
 app.get('/CheckVersion/*', sendLocalConfig);
 app.get('/query/*', sendLocalConfig);
+app.get('/version/*', sendLocalConfig);
+
+// Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
+const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
+    let color = "#ff4a7d"; 
+    let borderColor = "#ff4a7d";
+    if (isSuccess) { color = "#52c41a"; borderColor = "#52c41a"; }
+    else if (type === "warning") { color = "#ffaa00"; borderColor = "#ffaa00"; }
+
+    return `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <style>
+            body { background: #0b0914; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: #141124; padding: 40px 30px; border-radius: 16px; border: 1px solid ${borderColor}; width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); text-align: center; box-sizing: border-box; }
+            h2 { color: ${color}; margin-top: 0; font-size: 22px; letter-spacing: 0.5px; }
+            p { color: #cdcbde; font-size: 15px; line-height: 1.6; margin: 20px 0; }
+            .btn-back { display: inline-block; width: 100%; padding: 12px; background: #2a2444; border: 1px solid #3d3566; color: #fff; font-size: 14px; font-weight: bold; border-radius: 8px; text-decoration: none; transition: all 0.2s; box-sizing: border-box; }
+            .btn-back:hover { background: #8a3ffc; border-color: #8a3ffc; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>${title}</h2>
+            <p>${message}</p>
+            <a class="btn-back" href="/">QUAY LẠI TRANG CHỦ</a>
+        </div>
+    </body>
+    </html>`;
+};
 
 // ==========================================
 // GIAO DIỆN TRANG CHỦ KÍCH HOẠT KEY
@@ -106,22 +145,26 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Xử lý luồng kích hoạt từ phía người dùng
+// Xử lý luồng kích hoạt và kiểm tra tính hợp lệ của key
 app.post('/activate', (req, res) => {
     const { idGame, licenseKey } = req.body;
     let targetRecord = keyDatabase.find(k => k.key === licenseKey.trim());
+    const now = getVNTime();
 
     if (!targetRecord) {
-        return res.send(`<h3 style="color:#ff4a7d; background:#0b0914; height:100vh; display:flex; justify-content:center; align-items:center; margin:0; font-family:sans-serif;">Lỗi: Mã key xác thực không hợp lệ.</h3>`);
+        return res.send(renderNotificationPage("LỖI XÁC THỰC", "Mã key license vừa nhập không tồn tại hoặc đã bị xóa khỏi hệ thống máy chủ.", false, "error"));
     }
     if (targetRecord.status === "Đã khóa") {
-        return res.send(`<h3 style="color:#ff4a7d; background:#0b0914; height:100vh; display:flex; justify-content:center; align-items:center; margin:0; font-family:sans-serif;">Lỗi: Mã key này đã bị khóa (Banned) vĩnh viễn trên hệ thống.</h3>`);
+        return res.send(renderNotificationPage("KEY BỊ KHÓA", "Mã key này đã bị vô hiệu hóa hoặc khóa (Banned) vĩnh viễn do vi phạm điều khoản.", false, "error"));
     }
     if (targetRecord.status === "Tạm ngừng") {
-        return res.send(`<h3 style="color:#ffaa00; background:#0b0914; height:100vh; display:flex; justify-content:center; align-items:center; margin:0; font-family:sans-serif;">Thông báo: Mã key này đang tạm thời ngừng hoạt động bởi quản trị viên.</h3>`);
+        return res.send(renderNotificationPage("TẠM NGỪNG HOẠT ĐỘNG", "Mã key đang trong trạng thái tạm ngừng bảo trì bởi quản trị viên hệ thống.", false, "warning"));
+    }
+    if (targetRecord.expiryDate && now >= new Date(targetRecord.expiryDate)) {
+        return res.send(renderNotificationPage("KEY HẾT HẠN", "Thời gian sử dụng của mã bản quyền này đã kết thúc. Vui lòng gia hạn thêm.", false, "error"));
     }
     if (targetRecord.status === "Đã kích hoạt" && targetRecord.idGame !== idGame.trim()) {
-        return res.send(`<h3 style="color:#ff4a7d; background:#0b0914; height:100vh; display:flex; justify-content:center; align-items:center; margin:0; font-family:sans-serif;">Lỗi: Mã key này đã được liên kết với một ID khác trước đó.</h3>`);
+        return res.send(renderNotificationPage("SAI ĐỊA CHỈ ID", "Mã key này trước đó đã được liên kết cố định với một ID tài khoản Game khác.", false, "error"));
     }
 
     const startVN = getVNTime();
@@ -138,11 +181,13 @@ app.post('/activate', (req, res) => {
         <meta charset="UTF-8">
         <title>Xác Thực Thành Công</title>
         <style>
-            body { background: #0b0914; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card { background: #141124; padding: 30px; border-radius: 16px; border: 1px solid #52c41a; width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-            h2 { color: #52c41a; text-align: center; margin-top: 0; }
-            .row { background: #0b0914; padding: 12px; margin: 10px 0; border-radius: 8px; font-size: 14px; border-left: 4px solid #8a3ffc; display: flex; justify-content: space-between; }
-            .val { font-weight: bold; color: #1890ff; }
+            body { background: #0b0914; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: #141124; padding: 30px; border-radius: 16px; border: 1px solid #52c41a; width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+            h2 { color: #52c41a; text-align: center; margin-top: 0; letter-spacing: 1px; font-size: 20px; }
+            .row { background: #0b0914; padding: 14px; margin: 12px 0; border-radius: 8px; font-size: 14px; border-left: 4px solid #8a3ffc; display: flex; justify-content: space-between; align-items: center; }
+            .val { font-weight: bold; color: #00e5ff; font-family: monospace; }
+            .btn-home { display: block; text-align: center; margin-top: 25px; color: #8a3ffc; text-decoration: none; font-size: 14px; font-weight: bold; }
+            .btn-home:hover { color: #fff; }
         </style>
     </head>
     <body>
@@ -151,7 +196,7 @@ app.post('/activate', (req, res) => {
             <div class="row"><span>ID Game:</span> <span class="val">${idGame}</span></div>
             <div class="row"><span>Thời gian bắt đầu:</span> <span class="val">${formatVNFormat(startVN)}</span></div>
             <div class="row"><span>Thời gian hết hạn:</span> <span class="val">${formatVNFormat(expiryVN)}</span></div>
-            <p style="text-align:center; margin-bottom:0;"><a href="/" style="color:#8a3ffc; text-decoration:none; font-size:14px;">Quay lại trang chủ</a></p>
+            <a class="btn-home" href="/">Quay lại trang chủ</a>
         </div>
     </body>
     </html>
@@ -168,14 +213,14 @@ app.get('/login', (req, res) => {
         <title>Đăng Nhập Quản Trị</title>
         <style>
             body { background: #0b0914; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .login-box { background: #141124; padding: 30px; border-radius: 12px; border: 1px solid #2a2444; width: 320px; }
+            .login-box { background: #141124; padding: 30px; border-radius: 12px; border: 1px solid #2a2444; width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
             input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #2a2444; background: #0b0914; color: #fff; box-sizing: border-box; }
             button { width: 100%; padding: 12px; background: #8a3ffc; border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; }
         </style>
     </head>
     <body>
         <div class="login-box">
-            <h3 style="text-align:center; margin-top:0;">ADMIN LOGIN</h3>
+            <h3 style="text-align:center; margin-top:0; letter-spacing:1px;">ADMIN LOGIN</h3>
             <form action="/login" method="POST">
                 <input type="text" name="username" placeholder="Tài khoản admin" required>
                 <input type="password" name="password" placeholder="Mật khẩu" required>
@@ -197,7 +242,7 @@ app.post('/login', (req, res) => {
             </script>
         `);
     } else {
-        res.send(`<h3 style="color:red; text-align:center; font-family:sans-serif; margin-top:50px;">Sai tài khoản hoặc mật khẩu!</h3><p style="text-align:center;"><a href="/login">Thử lại</a></p>`);
+        res.send(`<h3 style="color:#ff4a7d; text-align:center; font-family:sans-serif; margin-top:50px;">Sai tài khoản hoặc mật khẩu!</h3><p style="text-align:center;"><a href="/login" style="color:#8a3ffc;">Thử lại</a></p>`);
     }
 });
 
@@ -214,16 +259,16 @@ app.get('/admin', (req, res) => {
         <tr>
             <td style="color: #fff; font-family: monospace;">
                 <span id="key-${index}">${k.key}</span>
-                <button onclick="copyToClipboard('${k.key}')" style="margin-left: 8px; background: #2a2444; border: 1px solid #3d3566; color: #8a3ffc; padding: 2px 6px; border-radius: 4px; font-size: 11px; cursor: pointer;">Copy</button>
+                <button onclick="copyToClipboard('${k.key}')" style="margin-left: 8px; background: #2a2444; border: 1px solid #3d3566; color: #8a3ffc; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: 0.2s;">Copy</button>
             </td>
             <td><span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 12px;">${k.type}</span></td>
             <td><span style="color:${statusColor}; font-weight:bold;">${k.status}</span></td>
-            <td style="color: #1890ff;">${k.idGame || '---'}</td>
+            <td style="color: #00e5ff; font-family: monospace;">${k.idGame || '---'}</td>
             <td style="font-size: 13px; color: #aaa;">${formatVNFormat(k.expiryDate)}</td>
             <td>
                 <form action="/admin/action/single" method="POST" style="display:inline;">
                     <input type="hidden" name="index" value="${index}">
-                    <select name="actionType" onchange="this.form.submit()" style="width:130px; margin:0; padding:4px; background:#0b0914; color:#fff; border:1px solid #2a2444; border-radius:4px;">
+                    <select name="actionType" onchange="this.form.submit()" style="width:130px; margin:0; padding:6px; background:#0b0914; color:#fff; border:1px solid #2a2444; border-radius:4px; cursor:pointer;">
                         <option value="">Thao tác...</option>
                         <option value="add_1h">+1 Giờ</option>
                         <option value="add_1d">+1 Ngày</option>
@@ -257,29 +302,31 @@ app.get('/admin', (req, res) => {
             }
             function copyToClipboard(text) {
                 navigator.clipboard.writeText(text);
-                alert("Đã sao chép mã key: " + text);
+                alert("Đã sao chép mã key thành công: " + text);
             }
         </script>
         <style>
             body { background: #0b0914; color: #cdcbde; font-family: 'Segoe UI', sans-serif; padding: 30px; margin: 0; }
-            .admin-box { max-width: 1100px; margin: 0 auto; background: #141124; border: 1px solid #2a2444; border-radius: 16px; padding: 30px; }
-            h1 { font-size: 24px; margin: 0 0 5px 0; color: #fff; }
+            .admin-box { max-width: 1100px; margin: 0 auto; background: #141124; border: 1px solid #2a2444; border-radius: 16px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+            h1 { font-size: 24px; margin: 0 0 5px 0; color: #fff; letter-spacing: 0.5px; }
             .subtitle { color: #797687; font-size: 14px; margin: 0 0 25px 0; }
             .control-panel { background: #1c1832; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #2a2444; }
-            label { font-size: 13px; color: #797687; display: block; margin-bottom: 8px; }
-            select, input[type="number"] { background: #0b0914; border: 1px solid #2a2444; color: #fff; padding: 10px; border-radius: 8px; width: 150px; margin-right: 10px; }
-            .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
-            .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 14px; color: #fff; }
+            label { font-size: 13px; color: #797687; display: block; margin-bottom: 8px; font-weight: 500; }
+            select, input[type="number"] { background: #0b0914; border: 1px solid #2a2444; color: #fff; padding: 10px; border-radius: 8px; width: 150px; margin-right: 10px; font-size: 14px; }
+            .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 25px; }
+            .btn { padding: 12px 22px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 14px; color: #fff; transition: opacity 0.2s; }
+            .btn:hover { opacity: 0.85; }
             .btn-blue { background: #1d72b8; }
             .btn-purple { background: #8a3ffc; }
             .btn-danger { background: #ff4a7d; }
             .stats { display: flex; gap: 15px; margin-bottom: 25px; }
-            .stat-card { background: #1c1832; border: 1px solid #2a2444; padding: 20px; border-radius: 12px; flex: 1; }
+            .stat-card { background: #1c1832; border: 1px solid #2a2444; padding: 20px; border-radius: 12px; flex: 1; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
             .stat-title { font-size: 13px; color: #797687; margin-bottom: 5px; }
             .stat-num { font-size: 26px; font-weight: bold; color: #fff; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th, td { padding: 14px; text-align: left; border-bottom: 1px solid #2a2444; font-size: 14px; }
-            th { color: #797687; font-weight: 500; background: #1c1832; }
+            th { color: #797687; font-weight: 500; background: #1c1832; border-top-left-radius: 4px; border-top-right-radius: 4px; }
+            tr:hover td { background: rgba(255,255,255,0.01); }
         </style>
     </head>
     <body>
@@ -288,12 +335,12 @@ app.get('/admin', (req, res) => {
             <div class="subtitle">Hệ thống tạo key, phân bổ thời gian và quản lý trạng thái kích hoạt tài khoản trò chơi.</div>
             
             <div class="control-panel">
-                <h3 style="color:#fff; margin-top:0;">TÙY CHỌN TOÀN HỆ THỐNG (BULK ACTIONS)</h3>
+                <h3 style="color:#fff; margin-top:0; font-size:15px; letter-spacing:0.5px;">TÙY CHỌN TOÀN HỆ THỐNG (BULK ACTIONS)</h3>
                 <form action="/admin/action/global" method="POST">
-                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
                         <div>
                             <label>Nhập số lượng thời gian</label>
-                            <input type="number" name="timeAmount" placeholder="Ví dụ: 5" min="1" style="width: 120px;">
+                            <input type="number" name="timeAmount" placeholder="Ví dụ: 5" min="1" style="width: 140px;">
                         </div>
                         <div>
                             <label>Đơn vị</label>
@@ -319,7 +366,7 @@ app.get('/admin', (req, res) => {
                 <div class="stat-card"><div class="stat-title">Chưa kích hoạt</div><div class="stat-num" style="color: #1890ff;">${totalUnused}</div></div>
             </div>
 
-            <h2 style="font-size:16px; color:#fff; margin: 30px 0 10px 0;">DANH SÁCH LICENSE KEYS</h2>
+            <h2 style="font-size:16px; color:#fff; margin: 30px 0 10px 0; letter-spacing:0.5px;">DANH SÁCH LICENSE KEYS</h2>
             <table>
                 <thead>
                     <tr>
@@ -332,7 +379,7 @@ app.get('/admin', (req, res) => {
                     </tr>
                 </thead>
                 <tbody>
-                    ${tableRows ? tableRows : '<tr><td colspan="6" style="text-align:center; color:#797687;">Hệ thống chưa có key nào. Hãy nhấn nút Tạo key mới.</td></tr>'}
+                    ${tableRows ? tableRows : '<tr><td colspan="6" style="text-align:center; color:#797687; padding: 30px 0;">Hệ thống chưa có key nào. Hãy nhấn nút Tạo key mới.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -420,7 +467,7 @@ app.post('/admin/action/global', (req, res) => {
     res.redirect('/admin');
 });
 
-// API xác thực luồng nổi cho game đọc dữ liệu trạng thái
+// API xác thực cho game
 app.get('/check-auth', (req, res) => {
     const id = req.query.id;
     if (!id) return res.status(400).json({ status: "error" });
@@ -441,9 +488,9 @@ app.get('/check-auth', (req, res) => {
 
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
 
-// Cơ chế vòng lặp tự ping nội bộ giữ kết nối chống ngủ đông trên hạ tầng Render
+// Cơ chế vòng lặp tự ping nội bộ chống ngủ đông hạ tầng Render
 setInterval(() => {
     http.get(`http://localhost:${PORT}/ping`, () => {}).on("error", () => {});
-}, 120000); // Kích hoạt đều đặn 2 phút một lần
+}, 120000);
 
 app.listen(PORT, () => console.log(`Server đang hoạt động vững chắc tại cổng ${PORT}`));
