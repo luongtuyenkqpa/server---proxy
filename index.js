@@ -1,5 +1,5 @@
 const express = require('express');
-const app = express(); // Đã tối ưu cú pháp khởi tạo gọn gàng
+const app = express(); 
 const http = require('http');
 const PORT = process.env.PORT || 3000;
 
@@ -59,7 +59,7 @@ const sendLocalConfig = (req, res) => {
         "extension": {
             "cdn_backup": "https://127.0.0.1:7890/",
             "retry_count": 0,
-            "maintenance_mode": true
+            "maintenance_mode": false // ĐÃ ĐỔI THÀNH FALSE: Để bypass màn hình chặn bảo trì của game
         }
     };
 
@@ -67,11 +67,32 @@ const sendLocalConfig = (req, res) => {
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
-// ĐÃ NÂNG CẤP: Thay thế regex linh hoạt chấp nhận cả đường dẫn gốc lẫn tham số mở rộng để sửa lỗi 404 từ client game
+// ==========================================
+// HỆ THỐNG PHÂN PHỐI NÂNG CẤP - FIX 404 KHI CHẠY QUA CLASH META PROXY
+// ==========================================
+
+// Middleware tự động quét và đánh chặn mọi request liên quan đến cấu hình file của Free Fire
+app.use((req, res, next) => {
+    const url = req.path.toLowerCase();
+    if (
+        url.includes('localconfig') || 
+        url.includes('checkversion') || 
+        url.includes('query') || 
+        url.includes('version')
+    ) {
+        return sendLocalConfig(req, res);
+    }
+    next();
+});
+
+// Dự phòng thêm các Router bắt điểm cứng (Hard-matching) bảo đảm không lọt lưới 404
 app.get('/localconfig.json', sendLocalConfig);
-app.get(/^\/CheckVersion(\/.*)?$/, sendLocalConfig);
-app.get(/^\/query(\/.*)?$/, sendLocalConfig);
-app.get(/^\/version(\/.*)?$/, sendLocalConfig);
+app.get('/CheckVersion', sendLocalConfig);
+app.get('/CheckVersion/*', sendLocalConfig);
+app.get('/query', sendLocalConfig);
+app.get('/query/*', sendLocalConfig);
+app.get('/version', sendLocalConfig);
+app.get('/version/*', sendLocalConfig);
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
 const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
