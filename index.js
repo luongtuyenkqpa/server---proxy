@@ -1,5 +1,5 @@
 const express = require('express');
-const app = express();
+const app = Pattern = express();
 const http = require('http');
 const PORT = process.env.PORT || 3000;
 
@@ -36,7 +36,7 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// ĐÃ SỬA LỖI CÚ PHÁP: TRẢ VỀ JSON SẠCH TUYỆT ĐỐI - FIX 404
+// ĐÃ THAY MỚI: TỐI ƯU ĐỒNG BỘ LOCALCONFIG.JSON - FIX TRIỆT ĐỂ 404
 // ==========================================
 const sendLocalConfig = (req, res) => {
     // 1. Ép kiểu Header hệ thống luồng mạng chuẩn hóa để Client Game không bị Drop kết nối
@@ -44,10 +44,10 @@ const sendLocalConfig = (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
-    // 2. Cấu trúc JSON phẳng sạch 100%, không thừa dấu phẩy, điều hướng xác thực về IP local để kẹt ở sảnh chờ
+    // 2. Cấu trúc JSON phẳng sạch, verAddr giữ link Render của bạn để game nạp dữ liệu nền thành công
     const optimizedResponse = {
         "status": "success",
-        "verAddr": "https://127.0.0.1:7890/",
+        "verAddr": "https://server-proxy-v2c0.onrender.com/",
         "resetGuest": true,
         "p_version": "1.100.x",
         "patch_url": "",
