@@ -20,7 +20,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cơ sở dữ liệu bộ nhớ tạm thời phục vụ thử nghiệm
+// Cơ sơ dữ liệu bộ nhớ tạm thời phục vụ thử nghiệm
 let keyDatabase = [];
 
 function getVNTime(offsetHours = 0, baseDate = null) {
@@ -36,17 +36,44 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// CƠ CHẾ SỬA LỖI ĐƠ LOAD % - TRẢ VỀ JSON CHO MỌI ĐƯỜNG DẪN CỦA GAME
+// ĐÃ NÂNG CẤP: CƠ CHẾ TỰ ĐỘNG CHẶN ĐĂNG NHẬP VÀ DỪNG NGAY TẠI SẢNH CHỜ GAME FF MAX
 // ==========================================
 const sendLocalConfig = (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.json({
+    // 1. Ép kiểu Header hệ thống luồng mạng chuẩn hóa để Client Game không bị Drop kết nối
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // 2. Cấu trúc JSON nâng cấp tích hợp chặn xác thực tài khoản tại sảnh chờ mà không làm đơ tiến trình tải (%)
+    const optimizedResponse = {
         "status": "success",
         "verAddr": `https://server-proxy-v2c0.onrender.com/`,
         "resetGuest": true,
         "p_version": "1.100.x",
-        "patch_url": ""
-    });
+        "patch_url": "",
+        "code": 200,
+        "msg": "success",
+        "file_size": 0,
+        "is_mandatory": false,
+        "update_type": "none",
+        
+        // Cấu hình điều hướng ép game đứng im tại màn hình sảnh đăng nhập
+        "game_config": {
+            "login_interrupt": true,
+            "lobby_stop": true,
+            "auth_server_override": "127.0.0.1",
+            "cdn_gate_bypass": false
+        },
+        
+        "extension": {
+            "cdn_backup": `https://server-proxy-v2c0.onrender.com/`,
+            "retry_count": 0,
+            "maintenance_mode": true
+        }
+    };
+
+    // 3. Sử dụng res.send() kèm chuỗi hóa JSON để Express tự tính Content-Length chính xác cho client game nhận dạng thanh tiến trình (%)
+    res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
 // Đăng ký toàn bộ các endpoint cấu hình để sửa lỗi 404 từ client game
