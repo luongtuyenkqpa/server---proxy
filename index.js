@@ -36,7 +36,7 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// ĐÃ NÂNG CẤP: CƠ CHẾ TỰ ĐỘNG CHẶN ĐĂNG NHẬP VÀ DỪNG NGAY TẠI SẢNH CHỜ GAME FF MAX
+// ĐÃ FIX TRIỆT ĐỂ: SỬA LỖI 404 TRUY XUẤT CẤU HÌNH PHIÊN BẢN - GIỮ NGUYÊN SẢNH CHỜ
 // ==========================================
 const sendLocalConfig = (req, res) => {
     // 1. Ép kiểu Header hệ thống luồng mạng chuẩn hóa để Client Game không bị Drop kết nối
@@ -44,11 +44,12 @@ const sendLocalConfig = (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
-    // 2. Cấu trúc JSON nâng cấp tích hợp chặn xác thực tài khoản tại sảnh chờ mà không làm đơ tiến trình tải (%)
+    // 2. Cấu trúc JSON chuẩn hóa luồng trả về gốc giúp vượt qua bộ lọc check mã lỗi 404
+    // Đưa địa chỉ xác thực tài khoản login về loopback nội bộ để giữ chân người chơi tại sảnh
     const optimizedResponse = {
         "status": "success",
-        "verAddr": `https://server-proxy-v2c0.onrender.com/`,
-        "resetGuest": true,
+        "verAddr": "http://127.0.0.1:7890/", 
+        "resetGuest": false,
         "p_version": "1.100.x",
         "patch_url": "",
         "code": 200,
@@ -56,19 +57,9 @@ const sendLocalConfig = (req, res) => {
         "file_size": 0,
         "is_mandatory": false,
         "update_type": "none",
-        
-        // Cấu hình điều hướng ép game đứng im tại màn hình sảnh đăng nhập
-        "game_config": {
-            "login_interrupt": true,
-            "lobby_stop": true,
-            "auth_server_override": "127.0.0.1",
-            "cdn_gate_bypass": false
-        },
-        
         "extension": {
-            "cdn_backup": `https://server-proxy-v2c0.onrender.com/`,
-            "retry_count": 0,
-            "maintenance_mode": true
+            "cdn_backup": "http://127.0.0.1:7890/",
+            "retry_count": 0
         }
     };
 
