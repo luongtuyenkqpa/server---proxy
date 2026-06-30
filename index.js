@@ -39,12 +39,10 @@ function formatVNFormat(dateObj) {
 // ĐÃ THAY MỚI: TỐI ƯU ĐỒNG BỘ LOCALCONFIG.JSON - FIX TRIỆT ĐỂ 404
 // ==========================================
 const sendLocalConfig = (req, res) => {
-    // 1. Ép kiểu Header hệ thống luồng mạng chuẩn hóa để Client Game không bị Drop kết nối
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
-    // 2. Cấu trúc JSON phẳng sạch, verAddr giữ link Render của bạn để game nạp dữ liệu nền thành công
     const optimizedResponse = {
         "status": "success",
         "verAddr": "https://server-proxy-v2c0.onrender.com/",
@@ -57,42 +55,29 @@ const sendLocalConfig = (req, res) => {
         "is_mandatory": false,
         "update_type": "none",
         "extension": {
-            "cdn_backup": "https://127.0.0.1:7890/",
+            "cdn_backup": "https://server-proxy-v2c0.onrender.com/",
             "retry_count": 0,
-            "maintenance_mode": false // ĐÃ ĐỔI THÀNH FALSE: Để bypass màn hình chặn bảo trì của game
+            "maintenance_mode": false // ĐỂ FALSE ĐỂ VÀO THẲNG GAME KHÔNG BỊ CHẶN BẢO TRÌ
         }
     };
 
-    // 3. Sử dụng res.send() kèm chuỗi hóa JSON để Express tự tính Content-Length chính xác cho client game nhận dạng thanh tiến trình (%)
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
-// ==========================================
-// HỆ THỐNG PHÂN PHỐI NÂNG CẤP - FIX 404 KHI CHẠY QUA CLASH META PROXY
-// ==========================================
-
-// Middleware tự động quét và đánh chặn mọi request liên quan đến cấu hình file của Free Fire
+// ĐÁNH CHẶN TOÀN DIỆN DIỆN RỘNG: Bất cứ request nào chứa các từ khóa này đều được trả file config ngay lập tức
 app.use((req, res, next) => {
     const url = req.path.toLowerCase();
-    if (
-        url.includes('localconfig') || 
-        url.includes('checkversion') || 
-        url.includes('query') || 
-        url.includes('version')
-    ) {
+    if (url.includes('localconfig') || url.includes('checkversion') || url.includes('query') || url.includes('version')) {
         return sendLocalConfig(req, res);
     }
     next();
 });
 
-// Dự phòng thêm các Router bắt điểm cứng (Hard-matching) bảo đảm không lọt lưới 404
+// Định tuyến dự phòng
 app.get('/localconfig.json', sendLocalConfig);
-app.get('/CheckVersion', sendLocalConfig);
-app.get('/CheckVersion/*', sendLocalConfig);
-app.get('/query', sendLocalConfig);
-app.get('/query/*', sendLocalConfig);
-app.get('/version', sendLocalConfig);
-app.get('/version/*', sendLocalConfig);
+app.get('/CheckVersion*', sendLocalConfig);
+app.get('/query*', sendLocalConfig);
+app.get('/version*', sendLocalConfig);
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
 const renderNotificationPage = (title, message, isSuccess = false, type = "error") => {
@@ -184,7 +169,6 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Xử lý luồng kích hoạt và kiểm tra tính hợp lệ của key
 app.post('/activate', (req, res) => {
     const { idGame, licenseKey } = req.body;
     let targetRecord = keyDatabase.find(k => k.key === licenseKey.trim());
@@ -527,7 +511,6 @@ app.get('/check-auth', (req, res) => {
 
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
 
-// Cơ chế vòng lặp tự ping nội bộ chống ngủ đông hạ tầng Render
 setInterval(() => {
     http.get(`http://localhost:${PORT}/ping`, () => {}).on("error", () => {});
 }, 120000);
