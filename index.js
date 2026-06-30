@@ -8,9 +8,11 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Unity-Version, User-Agent");
     res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    
+    // Xử lý luồng PREFLIGHT OPTIONS của client game
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -36,16 +38,18 @@ function formatVNFormat(dateObj) {
 }
 
 // ==========================================
-// TỐI ƯU ĐỒNG BỘ LOCALCONFIG.JSON
+// ĐÃ NÂNG CẤP TRIỆT ĐỂ: TOÀN DIỆN RESPONSE ĐỂ KHÔNG BỊ ĐƠ LOADING %
 // ==========================================
 const sendLocalConfig = (req, res) => {
+    // Ép kiểu Header đồng bộ hệ thống để Engine Unity của Free Fire nạp gói ngay lập tức
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Transfer-Encoding', 'chunked'); // Fix đơ tiến trình đọc dữ liệu
 
     const optimizedResponse = {
         "status": "success",
-        "verAddr": "https://server-proxy-v2c0.onrender.com/",
+        "verAddr": "https://server-proxy-woad.vercel.app/",
         "resetGuest": true,
         "p_version": "1.100.x",
         "patch_url": "",
@@ -55,13 +59,15 @@ const sendLocalConfig = (req, res) => {
         "is_mandatory": false,
         "update_type": "none",
         "extension": {
-            "cdn_backup": "https://server-proxy-v2c0.onrender.com/",
+            "cdn_backup": "https://server-proxy-woad.vercel.app/",
             "retry_count": 0,
             "maintenance_mode": false
         }
     };
 
-    res.status(200).send(JSON.stringify(optimizedResponse));
+    // Sử dụng end() kết hợp Buffer để đẩy thẳng gói tin xuống luồng mạng nhanh nhất
+    const dataBuffer = Buffer.from(JSON.stringify(optimizedResponse), 'utf-8');
+    res.status(200).end(dataBuffer);
 };
 
 // Giao diện thông báo lỗi/thành công chuẩn UI cao cấp
@@ -98,7 +104,7 @@ const renderNotificationPage = (title, message, isSuccess = false, type = "error
 };
 
 // ==========================================
-// CÁC ĐƯỜNG DẪN HỆ THỐNG QUẢN TRỊ & KÍCH HOẠT KEY
+// GIAO DIỆN TRANG CHỦ KÍCH HOẠT KEY
 // ==========================================
 app.get('/', (req, res) => {
     res.send(`
@@ -492,11 +498,10 @@ app.get('/check-auth', (req, res) => {
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
 
 // ==========================================
-// BƯỚC ĐỘT PHÁ Ở ĐÂY: LƯỚI QUÉT CUỐI CÙNG BẮT TOÀN BỘ MỌI REQUEST CỦA GAME (CATCH-ALL)
-// Đặt dưới cùng để không ghi đè lên tính năng quản trị Admin của bạn
+// ĐƯỢC THAY MỚI: LƯỚI QUÉT SIÊU CẤP CATCH-ALL ĐƯỢC ÉP KIỂU ĐỂ FIX LỖI ĐƠ % LOADING GAME
+// Đặt dưới cùng để bảo toàn các đường dẫn Admin ở trên
 // ==========================================
 app.all('*', (req, res) => {
-    // Dù game gọi đường dẫn nào, đều trả thẳng file config JSON để fix 404
     sendLocalConfig(req, res);
 });
 
