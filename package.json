@@ -1,14 +1,10 @@
 {
   "name": "keyvault-server",
-  "version": "2.0.0",
-  "description": "KeyVault — server gộp chung 1 file (index.js): vừa phục vụ giao diện trang chủ, vừa là backend API, có chống ngủ đông cho Render free tier.",
+  "version": "1.0.0",
+  "description": "KeyVault - giao diện + backend gộp chung 1 file index.js",
   "main": "index.js",
+  "engines": { "node": ">=16" },
   "scripts": {
     "start": "node index.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "license": "MIT"
+  }
 }
-
