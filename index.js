@@ -24,23 +24,20 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cơ sở dữ liệu và bộ nhớ đệm lưu trữ lớp phòng thủ
 let keyDatabase = [];
 const ipBruteForceLog = new Map(); 
 const ipBlacklist = new Set();     
 
 // =========================================================================
-// HỆ THỐNG TƯỜNG LỬA BẢO MẬT QUÂN SỰ VÀ PHÒNG THỦ CẤP CAO (NEW)
+// HỆ THỐNG TƯỜNG LỬA BẢO MẬT QUÂN SỰ VÀ PHÒNG THỦ CẤP CAO
 // =========================================================================
 const militaryFirewall = (req, res, next) => {
     const ip = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress;
     
-    // Kiểm tra danh sách đen (Blacklist)
     if (ipBlacklist.has(ip)) {
         return res.status(403).json({ status: "cyber_defense", message: "Access denied by automated military-grade firewall security." });
     }
 
-    // Bộ lọc chuyên sâu chống dịch ngược payload và quét khai thác mã độc
     const maliciousPattern = /(\.\.\/|select\s+.*\s+from|union\s+select|<script>|'|--|sqlmap|dirbuster|nikto)/i;
     if (maliciousPattern.test(req.url) || maliciousPattern.test(JSON.stringify(req.body))) {
         ipBlacklist.add(ip); 
@@ -114,15 +111,11 @@ const sendLocalConfig = (req, res) => {
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
-// ==========================================
-// CỔNG KẾT NỐI API BẢO MẬT CHO ỨNG DỤNG ĐIỆN THOẠI
-// ==========================================
-app.post('/api/activate', async (req, res) => {
+const handleActivationLogic = async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const { licenseKey } = req.body || {};
     const ip = req.headers['x-forwarded-for'] || req.ip;
 
-    // Cơ chế chặn Brute-force
     const attempts = ipBruteForceLog.get(ip) || 0;
     if (attempts > 5) {
         return res.status(429).json({ status: "error", message: "Quá nhiều yêu cầu thất bại từ thiết bị này. Vui lòng thử lại sau." });
@@ -139,12 +132,10 @@ app.post('/api/activate', async (req, res) => {
 
     if (!targetRecord) {
         ipBruteForceLog.set(ip, attempts + 1);
-        // Ngăn chặn Timing Attack bằng cách delay ngẫu nhiên câu trả lời thất bại
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200));
         return res.status(404).json({ status: "error", message: "Mã key license không tồn tại trên hệ thống." });
     }
 
-    // Reset lịch sử brute-force khi thành công
     ipBruteForceLog.delete(ip);
 
     if (targetRecord.status === "Đã khóa") {
@@ -166,9 +157,13 @@ app.post('/api/activate', async (req, res) => {
         message: "Xác thực bản quyền thành công!",
         expiry: formatVNFormat(expiryVN)
     });
-});
+};
 
-// THAY THẾ TRANG CHỦ HOÀN TOÀN THÀNH CỔNG GIÁM SÁT AN NINH QUÂN SỰ MÃ HÓA
+// ĐỒNG BỘ TOÀN DIỆN CÁC BIẾN THỂ ĐƯỜNG DẪN TRÁNH HOÀN TOÀN LỖI TYPO ĐƯỜNG TRUYỀN
+app.post('/api/activate', handleActivationLogic);
+app.post('/api/aptive', handleActivationLogic);
+app.post('/api/aptivate', handleActivationLogic);
+
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mainframe Security Gateway</title><style>body { background: #030208; color: #00ff66; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .secure-box { border: 1px solid #00ff66; padding: 35px; background: #090714; box-shadow: 0 0 25px rgba(0,255,102,0.15); text-align: center; border-radius: 6px; } .status { color: #ff0055; font-weight: bold; animation: blink 1.5s infinite; } @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } } .btn-admin { display: inline-block; margin-top: 20px; padding: 11px 25px; border: 1px solid #00ff66; color: #00ff66; text-decoration: none; background: transparent; font-weight: bold; transition: 0.3s; } .btn-admin:hover { background: #00ff66; color: #030208; }</style></head><body><div class="secure-box"><h2>SECURITY CONTROL MAINFRAME</h2><p>SYSTEM STATUS: <span class="status">RESTRICTED ACCESS</span></p><p style="color: #666; font-size: 12px; max-width:320px; margin:0 auto;">All connections are hardware-verified, logged and monitored under tactical cyber security frameworks.</p><a class="btn-admin" href="/login">ADMIN GATEWAY</a></div></body></html>`);
 });
@@ -191,7 +186,6 @@ const serverAuthMiddleware = (req, res, next) => {
     if (token === 'session_verified_120510') { next(); } else { res.redirect('/login'); }
 };
 
-// GIAO DIỆN TRANG QUẢN TRỊ - ĐÃ LOẠI BỎ CỘT ID GAME/NICKNAME
 app.get('/admin', serverAuthMiddleware, (req, res) => {
     let tableRows = keyDatabase.map((k, index) => {
         let statusColor = "#797687";
@@ -269,7 +263,7 @@ app.post('/admin/action/global', serverAuthMiddleware, (req, res) => {
     res.redirect('/admin');
 });
 
-// HÀM XÁC THỰC AUTH DỰA TRÊN LICENSE KEY ĐỘC LẬP TRÊN THIẾT BỊ
+// FIX TRIỆT ĐỂ: Thay đổi mã trả về từ HTTP 200 thành HTTP 403 đối với phiên xác thực lỗi
 function handleCheckAuth(licenseId, res) {
     const safeKey = sanitizeInput(licenseId);
     if (!safeKey) return res.status(400).json({ status: "error", message: "Invalid Key Parameter" });
@@ -288,13 +282,12 @@ function handleCheckAuth(licenseId, res) {
             data: baseData 
         }));
     }
-    return res.status(200).send(JSON.stringify({ id: safeKey, status: "Unverified", code: 400, message: "Mã Bản Quyền Không Hợp Lệ Hoặc Hết Hạn!", data: baseData }));
+    return res.status(403).send(JSON.stringify({ id: safeKey, status: "Unverified", code: 400, message: "Mã Bản Quyền Không Hợp Lệ Hoặc Hết Hạn!", data: baseData }));
 }
 
 app.get('/check-auth', (req, res) => { handleCheckAuth(req.query.id || req.query.key, res); });
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
 
-// NÂNG CẤP CỔNG ĐÓN WILDCARD ĐỂ TƯƠNG THÍCH CHUỖI NHỊ PHÂN MỚI CỦA CLIENT
 app.all('*', (req, res) => {
     if (req.path === '/favicon.ico') return res.status(204).end();
     const ext = req.path.split('.').pop().toLowerCase();
@@ -306,8 +299,6 @@ app.all('*', (req, res) => {
     }
     if (req.path.includes('.')) return sendLocalConfig(req, res);
     const unparsedBody = req.body || {};
-    
-    // Quét mở rộng cả tham số key / licenseKey gửi lên từ mảng phân rã nhị phân ở điện thoại
     const possibleId = req.query.key || req.query.licenseKey || unparsedBody.licenseKey || req.query.id || req.query.accountId || unparsedBody.id;
     if (possibleId) return handleCheckAuth(possibleId, res);
     sendLocalConfig(req, res);
@@ -317,20 +308,14 @@ app.use((err, req, res, next) => {
     try { sendLocalConfig(req, res); } catch (e) { res.status(200).send('{"status":"ok","code":0}'); }
 });
 
-// =========================================================================
-// ENGINE TỰ ĐỘNG KÍCH HOẠT DUY TRÌ XUNG NHỊP - CHỐNG COLD START RENDER (NEW)
-// =========================================================================
 const keepAlive = () => {
-    // Tự động nhận diện domain động từ Render hoặc Vercel để gửi tín hiệu tự kích hoạt
     const siteUrl = process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
     if (siteUrl.startsWith('http')) {
         setInterval(() => {
-            http.get(`${siteUrl}/ping`, (res) => {
-                // Giữ kết nối thông suốt, máy chủ luôn thức để phản hồi client trong 0.1s
-            }).on('error', (err) => {
-                console.log("[KEEP-ALIVE] Hệ thống khôi phục trạng thái.");
+            http.get(`${siteUrl}/ping`, (res) => {}).on('error', (err) => {
+                console.log("[KEEP-ALIVE] Khôi phục kết nối.");
             });
-        }, 10 * 60 * 1000); // Ping chu kỳ 10 phút/lần (Ngăn Render rơi vào giấc ngủ sau 15 phút)
+        }, 5 * 60 * 1000); 
     }
 };
 
