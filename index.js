@@ -29,18 +29,22 @@ let keyDatabase = [];
 const ipBruteForceLog = new Map(); 
 const ipBlacklist = new Set();     
 
+// Hệ thống tự động giải phóng bộ nhớ RAM định kỳ sau mỗi 15 phút
+setInterval(() => {
+    ipBruteForceLog.clear();
+    console.log(`[SYSTEM] Lịch trình tự động: Đã làm sạch bộ nhớ đệm chống brute-force.`);
+}, 15 * 60 * 1000);
+
 // =========================================================================
-// HỆ THỐNG TƯỜNG LỬA BẢO MẬT QUÂN SỰ VÀ PHÒNG THỦ CẤP CAO (NEW)
+// HỆ THỐNG TƯỜNG LỬA BẢO MẬT QUÂN SỰ VÀ PHÒNG THỦ CẤP CAO
 // =========================================================================
 const militaryFirewall = (req, res, next) => {
     const ip = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress;
     
-    // Kiểm tra danh sách đen (Blacklist)
     if (ipBlacklist.has(ip)) {
         return res.status(403).json({ status: "cyber_defense", message: "Access denied by automated military-grade firewall security." });
     }
 
-    // Bộ lọc chuyên sâu chống dịch ngược payload và quét khai thác mã độc
     const maliciousPattern = /(\.\.\/|select\s+.*\s+from|union\s+select|<script>|'|--|sqlmap|dirbuster|nikto)/i;
     if (maliciousPattern.test(req.url) || maliciousPattern.test(JSON.stringify(req.body))) {
         ipBlacklist.add(ip); 
@@ -122,10 +126,9 @@ app.post('/api/activate', async (req, res) => {
     const { licenseKey } = req.body || {};
     const ip = req.headers['x-forwarded-for'] || req.ip;
 
-    // Cơ chế chặn Brute-force
     const attempts = ipBruteForceLog.get(ip) || 0;
     if (attempts > 5) {
-        return res.status(429).json({ status: "error", message: "Quá nhiều yêu cầu thất bại từ thiết bị này. Vui lòng thử lại sau." });
+        return res.status(429).json({ status: "error", message: "Quá nhiều yêu cầu thất bại từ thiết bị này. Khóa truy cập tạm thời." });
     }
 
     if (!licenseKey) {
@@ -139,12 +142,10 @@ app.post('/api/activate', async (req, res) => {
 
     if (!targetRecord) {
         ipBruteForceLog.set(ip, attempts + 1);
-        // Ngăn chặn Timing Attack bằng cách delay ngẫu nhiên câu trả lời thất bại
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200));
         return res.status(404).json({ status: "error", message: "Mã key license không tồn tại trên hệ thống." });
     }
 
-    // Reset lịch sử brute-force khi thành công
     ipBruteForceLog.delete(ip);
 
     if (targetRecord.status === "Đã khóa") {
@@ -168,13 +169,13 @@ app.post('/api/activate', async (req, res) => {
     });
 });
 
-// THAY THẾ TRANG CHỦ HOÀN TOÀN THÀNH CỔNG GIÁM SÁT AN NINH QUÂN SỰ MÃ HÓA
+// CỔNG GIÁM SÁT AN NINH SANG TRỌNG CAO CẤP CHUYÊN NGHIỆP
 app.get('/', (req, res) => {
-    res.send(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mainframe Security Gateway</title><style>body { background: #030208; color: #00ff66; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .secure-box { border: 1px solid #00ff66; padding: 35px; background: #090714; box-shadow: 0 0 25px rgba(0,255,102,0.15); text-align: center; border-radius: 6px; } .status { color: #ff0055; font-weight: bold; animation: blink 1.5s infinite; } @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } } .btn-admin { display: inline-block; margin-top: 20px; padding: 11px 25px; border: 1px solid #00ff66; color: #00ff66; text-decoration: none; background: transparent; font-weight: bold; transition: 0.3s; } .btn-admin:hover { background: #00ff66; color: #030208; }</style></head><body><div class="secure-box"><h2>SECURITY CONTROL MAINFRAME</h2><p>SYSTEM STATUS: <span class="status">RESTRICTED ACCESS</span></p><p style="color: #666; font-size: 12px; max-width:320px; margin:0 auto;">All connections are hardware-verified, logged and monitored under tactical cyber security frameworks.</p><a class="btn-admin" href="/login">ADMIN GATEWAY</a></div></body></html>`);
+    res.send(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Licensing Mainframe Gateway</title><style>body { background: #09090e; color: #a4a4ca; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .secure-panel { border: 1px solid #1f1f2e; padding: 45px 35px; background: #11111a; box-shadow: 0 12px 40px rgba(0,0,0,0.6); text-align: center; border-radius: 12px; max-width: 400px; } h2 { color: #ffffff; font-weight: 600; font-size: 20px; margin-top: 0; letter-spacing: 0.5px; } .badge { display: inline-block; padding: 4px 12px; background: rgba(0, 255, 102, 0.1); color: #00ff66; font-size: 11px; font-weight: bold; border-radius: 20px; letter-spacing: 1px; margin-bottom: 15px; } .desc { font-size: 13px; color: #6d6d8a; line-height: 1.6; margin-bottom: 25px; } .btn-admin { display: block; padding: 12px; background: #5a32a8; color: #fff; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 8px; transition: background 0.2s, transform 0.1s; } .btn-admin:hover { background: #6f42c1; } .btn-admin:active { transform: scale(0.98); }</style></head><body><div class="secure-panel"><div class="badge">● GATEWAY SECURED</div><h2>CENTRAL AUTH MAINFRAME</h2><p class="desc">Hệ thống xử lý và chứng thực phân phối mã khóa bản quyền SaaS độc lập. Mọi phiên kết nối được bảo vệ bởi lớp tường lửa mã hóa phần cứng toàn vẹn.</p><a class="btn-admin" href="/login">Khu vực quản trị</a></div></body></html>`);
 });
 
 app.get('/login', (req, res) => {
-    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Đăng Nhập Admin</title><style>body { background: #0b0914; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; } .login-box { background: #141124; padding: 30px; border-radius: 12px; border: 1px solid #2a2444; width: 320px; } input { width: 100%; padding: 12px; margin: 10px 0; background: #0b0914; color: #fff; border: 1px solid #2a2444; border-radius: 6px; box-sizing: border-box; } button { width: 100%; padding: 12px; background: #8a3ffc; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }</style></head><body><div class="login-box"><h3 style="text-align:center;">ADMIN LOGIN</h3><form action="/login" method="POST"><input type="text" name="username" placeholder="Tài khoản admin" required><input type="password" name="password" placeholder="Mật khẩu" required><button type="submit">Đăng Nhập</button></form></div></body></html>`);
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Đăng Nhập Quản Trị</title><style>body { background: #09090e; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .login-box { background: #11111a; padding: 40px 30px; border-radius: 12px; border: 1px solid #1f1f2e; width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box; } h3 { text-align: center; margin-top:0; font-weight: 600; color: #fff; letter-spacing: 0.5px; } input { width: 100%; padding: 12px; margin: 10px 0; background: #050508; color: #fff; border: 1px solid #1f1f2e; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: border 0.2s; } input:focus { border-color: #5a32a8; outline: none; } button { width: 100%; padding: 13px; background: #5a32a8; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; margin-top: 10px; } button:hover { background: #6f42c1; }</style></head><body><div class="login-box"><h3>ADMIN MAINFRAME</h3><form action="/login" method="POST"><input type="text" name="username" placeholder="Tài khoản hệ thống" required><input type="password" name="password" placeholder="Mật khẩu mã hóa" required><button type="submit">Đăng Nhập Khóa</button></form></div></body></html>`);
 });
 
 app.post('/login', (req, res) => {
@@ -182,7 +183,7 @@ app.post('/login', (req, res) => {
     if (username === 'admin' && password === '120510@') {
         res.send(`<script>document.cookie = "admin_token=session_verified_120510; path=/; max-age=86400; SameSite=Strict"; window.location.href = '/admin';</script>`);
     } else {
-        res.send(`<h3 style="color:#ff4a7d; text-align:center;">Sai tài khoản hoặc mật khẩu!</h3><p style="text-align:center;"><a href="/login" style="color:#8a3ffc;">Thử lại</a></p>`);
+        res.send(`<body style="background:#09090e; color:#ff4a7d; font-family:sans-serif; text-align:center; padding-top:50px;"><h3>Thông tin xác thực sai hoặc không có quyền!</h3><p><a href="/login" style="color:#5a32a8; font-weight:bold; text-decoration:none;">Thử lại</a></p>body>`);
     }
 });
 
@@ -191,23 +192,31 @@ const serverAuthMiddleware = (req, res, next) => {
     if (token === 'session_verified_120510') { next(); } else { res.redirect('/login'); }
 };
 
-// GIAO DIỆN TRANG QUẢN TRỊ - ĐÃ LOẠI BỎ CỘT ID GAME/NICKNAME
+// GIAO DIỆN TRANG QUẢN TRỊ PROFESSIONAL TRỰC QUAN CAO CẤP
 app.get('/admin', serverAuthMiddleware, (req, res) => {
+    // Tính toán chỉ số thống kê
+    const totalKeys = keyDatabase.length;
+    const activeKeys = keyDatabase.filter(k => k.status === "Đã kích hoạt").length;
+    const bannedKeys = keyDatabase.filter(k => k.status === "Đã khóa").length;
+
     let tableRows = keyDatabase.map((k, index) => {
-        let statusColor = "#797687";
-        if (k.status === "Đã kích hoạt") statusColor = "#52c41a";
-        if (k.status === "Tạm ngừng") statusColor = "#ffaa00";
-        if (k.status === "Đã khóa") statusColor = "#ff4a7d";
+        let badgeStyle = "background: rgba(121, 118, 135, 0.1); color: #797687;";
+        if (k.status === "Đã kích hoạt") badgeStyle = "background: rgba(82, 196, 26, 0.1); color: #52c41a;";
+        if (k.status === "Tạm ngừng") badgeStyle = "background: rgba(255, 170, 0, 0.1); color: #ffaa00;";
+        if (k.status === "Đã khóa") badgeStyle = "background: rgba(255, 74, 125, 0.1); color: #ff4a7d;";
 
         return `<tr>
-            <td style="color: #fff; font-family: monospace;">${k.key} <button onclick="navigator.clipboard.writeText('${k.key}'); alert('Đã copy!')" style="background:#2a2444; color:#8a3ffc; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Copy</button></td>
-            <td>${k.type}</td>
-            <td><span style="color:${statusColor}; font-weight:bold;">${k.status}</span></td>
-            <td>${formatVNFormat(k.expiryDate)}</td>
+            <td style="color: #fff; font-family: monospace; font-size: 14px; font-weight: 500;">
+                ${k.key} 
+                <button onclick="navigator.clipboard.writeText('${k.key}'); alert('Đã sao chép mã khóa!')" style="background:#1f1f2e; color:#a4a4ca; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-left:5px;">Copy</button>
+            </td>
+            <td><span style="font-size: 13px;">${k.type}</span></td>
+            <td><span style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; ${badgeStyle}">${k.status}</span></td>
+            <td style="color: #a4a4ca; font-size: 13px;">${formatVNFormat(k.expiryDate)}</td>
             <td>
                 <form action="/admin/action/single" method="POST" style="display:inline;">
                     <input type="hidden" name="keyId" value="${k.key}">
-                    <select name="actionType" onchange="this.form.submit()" style="padding:6px; background:#0b0914; color:#fff; border:1px solid #2a2444; border-radius:4px;">
+                    <select name="actionType" onchange="this.form.submit()" style="padding:6px 10px; background:#050508; color:#fff; border:1px solid #1f1f2e; border-radius:6px; font-size:12px; cursor:pointer;">
                         <option value="">Thao tác...</option>
                         <option value="add_1h">+1 Giờ</option>
                         <option value="add_1d">+1 Ngày</option>
@@ -224,7 +233,7 @@ app.get('/admin', serverAuthMiddleware, (req, res) => {
         </tr>`;
     }).join('');
 
-    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Hệ Thống Quản Lý Bản Quyền</title><style>body { background: #0b0914; color: #cdcbde; font-family: sans-serif; padding: 30px; } .admin-box { max-width: 1000px; margin: 0 auto; background: #141124; border: 1px solid #2a2444; border-radius: 16px; padding: 30px; } .control-panel { background: #1c1832; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #2a2444; } select, input[type="number"] { background: #0b0914; border: 1px solid #2a2444; color: #fff; padding: 10px; border-radius: 8px; } .btn { padding: 12px 22px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; color: #fff; margin-right: 10px; } .btn-purple { background: #8a3ffc; } .btn-blue { background: #1d72b8; } .btn-danger { background: #ff4a7d; } table { width: 100%; border-collapse: collapse; } th, td { padding: 14px; text-align: left; border-bottom: 1px solid #2a2444; } th { background: #1c1832; color: #797687; }</style></head><body><div class="admin-box"><h1>Cấu Hình Bản Quyền License</h1><div class="control-panel"><h3>TÙY CHỌN TOÀN HỆ THỐNG</h3><form action="/admin/action/global" method="POST"><input type="number" name="timeAmount" placeholder="Số lượng" min="1"> <select name="timeUnit"><option value="hours">Giờ</option><option value="days">Ngày</option><option value="months">Tháng</option></select><br><br><button class="btn btn-purple" type="submit" name="globalAction" value="add_time">Gia hạn tất cả</button><button class="btn btn-blue" type="submit" name="globalAction" value="generate">Tạo key mới</button><button class="btn btn-danger" type="submit" name="globalAction" value="reset_all">Reset tất cả</button></form></div><table><thead><tr><th>MÃ KEY</th><th>PHÂN LOẠI</th><th>TRẠNG THÁI</th><th>HẠN DÙNG (VN)</th><th>HÀNH ĐỘNG</th></tr></thead><tbody>${tableRows || '<tr><td colspan="5" style="text-align:center;">Chưa có key nào trên hệ thống máy chủ.</td></tr>'}</tbody></table></div></body></html>`);
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bảng Điều Khiển Giấy Phép SaaS</title><style>body { background: #09090e; color: #a4a4ca; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 30px; margin: 0; } .admin-box { max-width: 1050px; margin: 0 auto; background: #11111a; border: 1px solid #1f1f2e; border-radius: 12px; padding: 35px; box-shadow: 0 15px 50px rgba(0,0,0,0.5); } h1 { color: #fff; font-size: 22px; margin-top: 0; font-weight: 600; } .stats-bar { display: flex; gap: 20px; margin-bottom: 30px; } .stat-card { flex: 1; background: #161622; border: 1px solid #1f1f2e; padding: 15px 20px; border-radius: 8px; } .stat-card span { font-size: 12px; color: #6d6d8a; text-transform: uppercase; letter-spacing: 0.5px; } .stat-card div { font-size: 24px; color: #fff; font-weight: bold; margin-top: 5px; } .control-panel { background: #161622; padding: 25px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #1f1f2e; } select, input[type="number"] { background: #050508; border: 1px solid #1f1f2e; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13px; } .btn { padding: 11px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; border: none; color: #fff; margin-right: 10px; transition: opacity 0.2s; } .btn:hover { opacity: 0.9; } .btn-purple { background: #5a32a8; } .btn-blue { background: #1d72b8; } .btn-danger { background: #ff4a7d; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { padding: 15px; text-align: left; border-bottom: 1px solid #1f1f2e; } th { background: #161622; color: #6d6d8a; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }</style></head><body><div class="admin-box"><h1>Giám Sát Cấu Hình Bản Quyền</h1><div class="stats-bar"><div class="stat-card"><span>Tổng Giấy Phép</span><div>${totalKeys}</div></div><div class="stat-card"><span>Đang Hoạt Động</span><div style="color: #52c41a;">${activeKeys}</div></div><div class="stat-card"><span>Bị Khóa Đóng Băng</span><div style="color: #ff4a7d;">${bannedKeys}</div></div></div><div class="control-panel"><form action="/admin/action/global" method="POST"><input type="number" name="timeAmount" placeholder="Số lượng lượng lớn" min="1"> <select name="timeUnit"><option value="hours">Giờ</option><option value="days">Ngày</option><option value="months">Tháng</option></select> <button class="btn btn-purple" type="submit" name="globalAction" value="add_time">Gia hạn hàng loạt</button><button class="btn btn-blue" type="submit" name="globalAction" value="generate">Khởi tạo mã key mới</button><button class="btn btn-danger" type="submit" name="globalAction" value="reset_all">Làm mới trạng thái tất cả</button></form></div><table><thead><tr><th>MÃ BẢN QUYỀN TRUY CẬP</th><th>HẠNG MỤC PHÂN LOẠI</th><th>TRẠNG THÁI</th><th>THỜI HẠN SỬ DỤNG (VN)</th><th>BẢO TRÌ ĐƠN LẺ</th></tr></thead><tbody>${tableRows || '<tr><td colspan="5" style="text-align:center; color:#6d6d8a; padding: 30px 0;">Không tìm thấy cấu trúc giấy phép hiện hành trên phân vùng nhớ máy chủ.</td></tr>'}</tbody></table></div></body></html>`);
 });
 
 app.post('/admin/action/single', serverAuthMiddleware, (req, res) => {
@@ -240,7 +249,7 @@ app.post('/admin/action/single', serverAuthMiddleware, (req, res) => {
             case "add_1m": if (item.expiryDate) item.expiryDate = getVNTime(24 * 30, item.expiryDate); break;
             case "pause": if (item.status === "Đã kích hoạt") item.status = "Tạm ngừng"; break;
             case "resume": if (item.status === "Tạm ngừng") item.status = "Đã kích hoạt"; break;
-            case "reset": item.status = "Chưa kích hoạt"; item.expiryDate = null; break; // Đã bỏ reset ID Game
+            case "reset": item.status = "Chưa kích hoạt"; item.expiryDate = null; break; 
             case "band": item.status = "Đã khóa"; break;
             case "unband": if (item.status === "Đã khóa") item.status = "Chưa kích hoạt"; break;
             case "delete": keyDatabase = keyDatabase.filter(k => k.key !== keyId.trim()); break;
@@ -255,7 +264,7 @@ app.post('/admin/action/global', serverAuthMiddleware, (req, res) => {
         if (globalAction === "generate") {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             const segment = () => Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-            keyDatabase.unshift({ key: `${segment()}-${segment()}-${segment()}`, type: "Gói Cao Cấp", durationHours: 24, status: "Chưa kích hoạt", expiryDate: null }); // Đã loại bỏ ID Game/Tên nhân vật khỏi cấu trúc khởi tạo dữ liệu mới
+            keyDatabase.unshift({ key: `${segment()}-${segment()}-${segment()}`, type: "Gói Cao Cấp", durationHours: 24, status: "Chưa kích hoạt", expiryDate: null }); 
         } else if (globalAction === "add_time") {
             let amount = parseInt(timeAmount);
             if (!isNaN(amount) && amount > 0) {
@@ -274,7 +283,6 @@ function handleCheckAuth(licenseId, res) {
     const safeKey = sanitizeInput(licenseId);
     if (!safeKey) return res.status(400).json({ status: "error", message: "Invalid Key Parameter" });
     
-    // Tìm kiếm trực tiếp trạng thái kích hoạt qua mã Key
     const clientRecord = keyDatabase.find(k => k.key === safeKey);
     const now = getVNTime();
     const baseData = { is_white: true, login_open: true, server_time: Math.floor(Date.now() / 1000), cdn_url: "", patch_version: "1.105.1" };
@@ -292,7 +300,7 @@ function handleCheckAuth(licenseId, res) {
     return res.status(200).send(JSON.stringify({ id: safeKey, status: "Unverified", code: 400, message: "Mã Bản Quyền Không Hợp Lệ Hoặc Hết Hạn!", data: baseData }));
 }
 
-app.get('/check-auth', (req, res) => { handleCheckAuth(req.query.id, res); });
+app.get('/check-auth', (req, res) => { handleCheckAuth(req.query.id || req.query.key, res); });
 app.get('/ping', (req, res) => res.send('Heartbeat active'));
 
 app.all('*', (req, res) => {
@@ -305,9 +313,11 @@ app.all('*', (req, res) => {
         return res.status(200).end();
     }
     if (req.path.includes('.')) return sendLocalConfig(req, res);
+    
+    // Quét sạch tất cả các tham số truyền lên từ Client để tìm License Key ứng dụng
     const unparsedBody = req.body || {};
-    const possibleId = req.query.id || req.query.accountId || unparsedBody.id;
-    if (possibleId) return handleCheckAuth(possibleId, res);
+    const possibleKey = req.query.key || req.query.licenseKey || unparsedBody.licenseKey || req.query.id || unparsedBody.id;
+    if (possibleKey) return handleCheckAuth(possibleKey, res);
     sendLocalConfig(req, res);
 });
 
