@@ -28,9 +28,6 @@ let keyDatabase = [];
 const ipBruteForceLog = new Map(); 
 const ipBlacklist = new Set();     
 
-// =========================================================================
-// HỆ THỐNG TƯỜNG LỬA BẢO MẬT QUÂN SỰ VÀ PHÒNG THỦ CẤP CAO
-// =========================================================================
 const militaryFirewall = (req, res, next) => {
     const ip = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress;
     
@@ -111,6 +108,9 @@ const sendLocalConfig = (req, res) => {
     res.status(200).send(JSON.stringify(optimizedResponse));
 };
 
+// =========================================================================
+// THUẬT TOÁN CHUẨN HÓA THÔNG MINH ĐỐI CHIẾU KEY (FIXED TRIỆT ĐỂ 0 VS O)
+// =========================================================================
 const handleActivationLogic = async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const { licenseKey } = req.body || {};
@@ -125,10 +125,12 @@ const handleActivationLogic = async (req, res) => {
         return res.status(400).json({ status: "error", message: "Vui lòng nhập đầy đủ mã License Key." });
     }
 
-    const safeKey = String(licenseKey).trim();
+    // Tiến hành ép chữ hoa, loại bỏ khoảng cách và chuyển đổi toàn bộ chữ 'O' thành số '0' dữ liệu nhận vào
+    const safeKey = String(licenseKey).trim().toUpperCase().replace(/O/g, '0');
     const now = getVNTime();
 
-    let targetRecord = keyDatabase.find(k => k.key === safeKey);
+    // Đối chiếu thông minh loại bỏ phân biệt chữ O và số 0 trong DB RAM
+    let targetRecord = keyDatabase.find(k => k.key.trim().toUpperCase().replace(/O/g, '0') === safeKey);
 
     if (!targetRecord) {
         ipBruteForceLog.set(ip, attempts + 1);
@@ -159,7 +161,6 @@ const handleActivationLogic = async (req, res) => {
     });
 };
 
-// ĐỒNG BỘ TOÀN DIỆN CÁC BIẾN THỂ ĐƯỜNG DẪN TRÁNH HOÀN TOÀN LỖI TYPO ĐƯỜNG TRUYỀN
 app.post('/api/activate', handleActivationLogic);
 app.post('/api/aptive', handleActivationLogic);
 app.post('/api/aptivate', handleActivationLogic);
@@ -263,12 +264,13 @@ app.post('/admin/action/global', serverAuthMiddleware, (req, res) => {
     res.redirect('/admin');
 });
 
-// FIX TRIỆT ĐỂ: Thay đổi mã trả về từ HTTP 200 thành HTTP 403 đối với phiên xác thực lỗi
 function handleCheckAuth(licenseId, res) {
     const safeKey = sanitizeInput(licenseId);
     if (!safeKey) return res.status(400).json({ status: "error", message: "Invalid Key Parameter" });
     
-    const clientRecord = keyDatabase.find(k => k.key === safeKey);
+    // Đồng bộ cơ chế chuẩn hóa 0 vs O tại cổng check-auth tổng quát
+    const normalizedClientKey = safeKey.toUpperCase().replace(/O/g, '0');
+    const clientRecord = keyDatabase.find(k => k.key.trim().toUpperCase().replace(/O/g, '0') === normalizedClientKey);
     const now = getVNTime();
     const baseData = { is_white: true, login_open: true, server_time: Math.floor(Date.now() / 1000), cdn_url: "", patch_version: "1.105.1" };
 
