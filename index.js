@@ -26,29 +26,82 @@ app.use(express.urlencoded({ extended: true }));
 
 let keyDatabase = [];
 
-// Hàm lấy tên nhân vật Free Fire từ Garena API công khai
+// =========================================================================
+// HỆ THỐNG TỐI TÂN LẤY TÊN NHÂN VẬT FREE FIRE TỪ GARENA API (ĐÃ NÂNG CẤP)
+// =========================================================================
 async function fetchFFNickname(idGame) {
-    try {
-        const response = await fetch('https://shop.garena.sg/api/auth/player_id_login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            body: JSON.stringify({
-                app_id: 100067, // App ID mặc định của game Free Fire trên Garena
-                login_id: String(idGame).trim()
-            })
-        });
-        const data = await response.json();
-        if (data && data.nickname) {
-            return data.nickname;
+    const uid = String(idGame).trim();
+    
+    // Danh sách các cổng API của Garena được cấu hình Header giả lập trình duyệt nâng cao
+    const endpoints = [
+        {
+            url: 'https://shop.garena.sg/api/auth/player_id_login',
+            origin: 'https://shop.garena.sg',
+            referer: 'https://shop.garena.sg/app/100067/idlogin'
+        },
+        {
+            url: 'https://shop.garena.my/api/auth/player_id_login',
+            origin: 'https://shop.garena.my',
+            referer: 'https://shop.garena.my/app/100067/idlogin'
+        },
+        {
+            url: 'https://shop.garena.ph/api/auth/player_id_login',
+            origin: 'https://shop.garena.ph',
+            referer: 'https://shop.garena.ph/app/100067/idlogin'
         }
-        return "Không tìm thấy tên";
-    } catch (error) {
-        console.error("Lỗi khi check tên Free Fire:", error);
-        return "Lỗi API Garena";
+    ];
+
+    for (const endpoint of endpoints) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // Hủy kết nối sau 4 giây nếu cổng bị treo
+
+            const response = await fetch(endpoint.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Origin': endpoint.origin,
+                    'Referer': endpoint.referer,
+                    'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    app_id: 100067, // App ID mặc định của game Free Fire trên Garena
+                    login_id: uid
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            // Nếu phản hồi từ cổng này không thành công (ví dụ lỗi 403), chuyển sang cổng tiếp theo
+            if (!response.ok) continue;
+
+            const data = await response.json();
+            
+            // Trường hợp tìm thấy tên hợp lệ
+            if (data && data.nickname) {
+                return data.nickname;
+            }
+            
+            // Trường hợp Garena phản hồi trực tiếp rằng UID không tồn tại
+            if (data && (data.error === 'player_not_found' || data.error_code === 10013)) {
+                return "ID không tồn tại";
+            }
+        } catch (error) {
+            console.error(`Lỗi cổng kết nối ${endpoint.url}:`, error.message);
+            // Tiếp tục vòng lặp thử các cổng dự phòng khác
+        }
     }
+    return "Không tìm thấy tên";
 }
 
 function getVNTime(offsetHours = 0, baseDate = null) {
@@ -122,7 +175,7 @@ const renderNotificationPage = (title, message, isSuccess = false, type = "error
 };
 
 // ==========================================
-// CỔNG KẾT NỐI API CHO ĐIỆN THOẠI (ĐÃ UPDATE ASYNC)
+// CỔNG KẾT NỐI API CHO ĐIỆN THOẠI
 // ==========================================
 app.post('/api/activate', async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -318,7 +371,7 @@ function handleCheckAuth(id, res) {
     if (clientRecord && clientRecord.status === "Đã kích hoạt" && clientRecord.expiryDate && now < new Date(clientRecord.expiryDate)) {
         return res.status(200).send(JSON.stringify({ 
             id: safeId, 
-            playerName: clientRecord.playerName || "", // Trả về kèm tên nhân vật nếu app cần dùng
+            playerName: clientRecord.playerName || "", 
             status: "Verified", 
             code: 0, 
             message: "Kích hoạt thành công.", 
