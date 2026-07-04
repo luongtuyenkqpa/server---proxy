@@ -1922,4 +1922,1506 @@ const HTML_LINES = [
   "    if(k.price) metaBits.push('Giá: <b>'+fmtMoney(k.price)+'</b>');",
   "    const devUsed = (k.devices && k.devices.length) || (k.deviceId ? 1 : 0);",
   "    const devMax = k.maxDevices || 1;",
-  "    if(devUsed > 0) metaBits.push('Thiết bị: <b>'+devUsed+'/'+devMax+'</
+  "    if(devUsed > 0) metaBits.push('Thiết bị: <b>'+devUsed+'/'+devMax+'</b>');",
+  "    else metaBits.push('Thiết bị: <b>0/'+devMax+'</b>');",
+  "",
+  "    let actionsHtml = `",
+  "      <button class=\"icon-btn\" title=\"Sao chép\" data-act=\"copy\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"9\" y=\"9\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"/></svg>",
+  "      </button>`;",
+  "    if(st==='available'){",
+  "      actionsHtml += `",
+  "      <button class=\"icon-btn\" title=\"Đánh dấu đã bán\" data-act=\"sell\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M20 12V7a1 1 0 0 0-1-1h-6l-9 9 8 8 9-9a1 1 0 0 0 0-1Z\"/><circle cx=\"15\" cy=\"9\" r=\"1\"/></svg>",
+  "      </button>`;",
+  "    }",
+  "    actionsHtml += `",
+  "      <button class=\"icon-btn\" title=\"Reset key về ban đầu\" data-act=\"reset\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 12a9 9 0 1 0 3-6.7\"/><path d=\"M3 4v5h5\"/></svg>",
+  "      </button>`;",
+  "    if(k.deviceId || (k.devices && k.devices.length)){",
+  "      actionsHtml += `",
+  "      <button class=\"icon-btn\" title=\"Reset thiết bị liên kết\" data-act=\"resetdevice\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"5\" y=\"2\" width=\"14\" height=\"20\" rx=\"2\"/><path d=\"M12 18h.01\"/></svg>",
+  "      </button>`;",
+  "    }",
+  "    if(k.banned){",
+  "      actionsHtml += `",
+  "      <button class=\"icon-btn\" title=\"Bỏ cấm key\" data-act=\"unban\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 12l3 3 5-6\"/></svg>",
+  "      </button>`;",
+  "    } else {",
+  "      actionsHtml += `",
+  "      <button class=\"icon-btn danger\" title=\"Cấm key\" data-act=\"ban\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M5.5 5.5l13 13\"/></svg>",
+  "      </button>`;",
+  "    }",
+  "    actionsHtml += `",
+  "      <button class=\"icon-btn danger\" title=\"Xoá key vĩnh viễn\" data-act=\"delete\" data-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg>",
+  "      </button>`;",
+  "",
+  "    div.innerHTML = `",
+  "      <div class=\"ticket-top\">",
+  "        <div class=\"key\">${k.value}</div>",
+  "        <div class=\"ticket-badges\">",
+  "          <span class=\"badge ${k.type}\">${k.type==='premium' ? '★ Premium' : 'Thường'}</span>",
+  "          <span class=\"badge ${st}\">${STATUS_LABEL[st]}</span>",
+  "        </div>",
+  "      </div>",
+  "      <div class=\"ticket-bottom\">",
+  "        <div class=\"meta\">${metaBits.join(' &nbsp;·&nbsp; ')}</div>",
+  "        <div class=\"actions\">${actionsHtml}</div>",
+  "      </div>",
+  "    `;",
+  "    roll.appendChild(div);",
+  "  });",
+  "",
+  "  $('statTotal').textContent = keys.length;",
+  "  $('statAvail').textContent = keys.filter(k=>computeStatus(k)==='available').length;",
+  "  const soldKeys = keys.filter(k=>k.status==='sold' && !k.banned);",
+  "  $('statSold').textContent = keys.filter(k=>computeStatus(k)==='sold').length;",
+  "  $('statExpired').textContent = keys.filter(k=>computeStatus(k)==='expired').length;",
+  "  $('statBanned').textContent = keys.filter(k=>k.banned).length;",
+  "  const revenue = soldKeys.reduce((sum,k)=> sum + (parseFloat(String(k.price).replace(/[^\\d.]/g,''))||0), 0);",
+  "  $('statRevenue').textContent = revenue.toLocaleString('vi-VN')+'₫';",
+  "}",
+  "",
+  "$('rollList').addEventListener('click', (e)=>{",
+  "  const btn = e.target.closest('.icon-btn');",
+  "  if(!btn) return;",
+  "  const id = btn.dataset.id;",
+  "  const act = btn.dataset.act;",
+  "  const k = keys.find(x=>x.id===id);",
+  "  if(!k) return;",
+  "",
+  "  if(act==='copy'){",
+  "    navigator.clipboard.writeText(k.value);",
+  "    showToast('Đã sao chép: '+k.value);",
+  "  } else if(act==='sell'){",
+  "    sellTargetId = id;",
+  "    $('sellCustomer').value='';",
+  "    $('sellPrice').value = k.price || $('cfgPrice').value || '';",
+  "    $('sellDevice').value = k.deviceId || '';",
+  "    $('sellModalBg').classList.add('show');",
+  "  } else if(act==='reset'){",
+  "    k.status='available'; k.banned=false; k.customer=''; k.deviceId=null; k.devices=[]; k.price='';",
+  "    render();",
+  "    showToast('Đã reset key về trạng thái ban đầu');",
+  "  } else if(act==='resetdevice'){",
+  "    k.deviceId = null; k.devices = [];",
+  "    render();",
+  "    showToast('Đã reset thiết bị liên kết với key');",
+  "  } else if(act==='ban'){",
+  "    k.banned = true;",
+  "    render();",
+  "    showToast('Đã cấm key: '+k.value);",
+  "  } else if(act==='unban'){",
+  "    k.banned = false;",
+  "    render();",
+  "    showToast('Đã bỏ cấm key: '+k.value);",
+  "  } else if(act==='delete'){",
+  "    if(confirm('Xoá vĩnh viễn key này khỏi danh sách?')){",
+  "      setKeys(keys.filter(x=>x.id!==id));",
+  "      render();",
+  "      showToast('Đã xoá key');",
+  "    }",
+  "  }",
+  "});",
+  "",
+  "$('sellCancel').addEventListener('click', ()=> $('sellModalBg').classList.remove('show'));",
+  "$('sellConfirm').addEventListener('click', ()=>{",
+  "  const k = keys.find(x=>x.id===sellTargetId);",
+  "  if(k){",
+  "    k.status='sold';",
+  "    k.customer = $('sellCustomer').value.trim();",
+  "    k.price = $('sellPrice').value.trim();",
+  "    k.deviceId = $('sellDevice').value.trim() || null;",
+  "  }",
+  "  $('sellModalBg').classList.remove('show');",
+  "  render();",
+  "  showToast('Đã đánh dấu key là đã bán');",
+  "});",
+  "",
+  "$('btnGenerate').addEventListener('click', generateKeys);",
+  "$('search').addEventListener('input', render);",
+  "$('filterStatus').addEventListener('change', render);",
+  "$('filterType').addEventListener('change', render);",
+  "",
+  "$('btnCopyAvail').addEventListener('click', ()=>{",
+  "  const avail = keys.filter(k=>computeStatus(k)==='available').map(k=>k.value).join('\\n');",
+  "  if(!avail){ showToast('Không có key còn hàng'); return; }",
+  "  navigator.clipboard.writeText(avail);",
+  "  showToast('Đã sao chép toàn bộ key còn hàng');",
+  "});",
+  "",
+  "$('btnExport').addEventListener('click', ()=>{",
+  "  if(!keys.length){ showToast('Chưa có key để xuất'); return; }",
+  "  const rows = [['Key','Loại','Trạng thái','Khách hàng','Giá','Thiết bị','Ngày tạo','Hết hạn']];",
+  "  keys.forEach(k=>{",
+  "    rows.push([k.value, k.type, STATUS_LABEL[computeStatus(k)], k.customer||'', k.price||'', k.deviceId||'', formatDateTime(k.createdAt), k.expiresAt?formatDateTime(k.expiresAt):'Không giới hạn']);",
+  "  });",
+  "  const csv = rows.map(r=> r.map(c=>`\"${String(c).replace(/\"/g,'\"\"')}\"`).join(',')).join('\\n');",
+  "  const blob = new Blob(['\\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});",
+  "  const url = URL.createObjectURL(blob);",
+  "  const a = document.createElement('a');",
+  "  a.href = url; a.download = 'danh-sach-key.csv';",
+  "  a.click();",
+  "  URL.revokeObjectURL(url);",
+  "  showToast('Đã xuất file CSV');",
+  "});",
+  "",
+  "$('btnClear').addEventListener('click', ()=>{",
+  "  if(!keys.length) return;",
+  "  if(confirm('Xoá toàn bộ '+keys.length+' key? Hành động này không thể hoàn tác.')){",
+  "    setKeys([]);",
+  "    render();",
+  "    showToast('Đã xoá toàn bộ key');",
+  "  }",
+  "});",
+  "",
+  "let toastTimer;",
+  "function showToast(msg){",
+  "  const t = $('toast');",
+  "  t.textContent = msg;",
+  "  t.classList.add('show');",
+  "  clearTimeout(toastTimer);",
+  "  toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);",
+  "}",
+  "",
+  "/* ============ STATS PAGE ============ */",
+  "function renderStatsPage(){",
+  "  $('stTotalKeys').textContent = keys.length;",
+  "  $('stActiveKeys').textContent = keys.filter(k=>{const s=computeStatus(k); return s==='available'||s==='sold';}).length;",
+  "  $('stExpiredKeys').textContent = keys.filter(k=>computeStatus(k)==='expired').length;",
+  "  $('stPremiumKeys').textContent = keys.filter(k=>k.type==='premium').length;",
+  "  $('stLoginCount').textContent = loginHistory.length;",
+  "",
+  "  // creation chart: last 7 days",
+  "  const days = [];",
+  "  for(let i=6;i>=0;i--){",
+  "    const d = new Date();",
+  "    d.setDate(d.getDate()-i);",
+  "    d.setHours(0,0,0,0);",
+  "    days.push(d);",
+  "  }",
+  "  const counts = days.map(d=>{",
+  "    const next = new Date(d); next.setDate(next.getDate()+1);",
+  "    return keys.filter(k=> new Date(k.createdAt) >= d && new Date(k.createdAt) < next).length;",
+  "  });",
+  "  const max = Math.max(1, ...counts);",
+  "  const chart = $('creationChart');",
+  "  chart.innerHTML = '';",
+  "  days.forEach((d,i)=>{",
+  "    const col = document.createElement('div');",
+  "    col.className = 'bar-col';",
+  "    const h = Math.round((counts[i]/max)*100);",
+  "    col.innerHTML = `<div class=\"bar-val\">${counts[i]}</div><div class=\"bar\" style=\"height:${h}%\"></div><div class=\"bar-label\">${d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}</div>`;",
+  "    chart.appendChild(col);",
+  "  });",
+  "",
+  "  // type breakdown",
+  "  const total = keys.length || 1;",
+  "  const premium = keys.filter(k=>k.type==='premium').length;",
+  "  const normal = keys.length - premium;",
+  "  const pPct = Math.round((premium/total)*100);",
+  "  const nPct = 100 - pPct;",
+  "  $('typeBreakdown').innerHTML = `",
+  "    <div class=\"type-bar-row\">",
+  "      <div class=\"lbl\"><span>★ Premium</span><span>${premium} key (${pPct}%)</span></div>",
+  "      <div class=\"type-bar-track\"><div class=\"type-bar-fill\" style=\"width:${pPct}%; background:linear-gradient(90deg,var(--brass-soft),var(--brass));\"></div></div>",
+  "    </div>",
+  "    <div class=\"type-bar-row\">",
+  "      <div class=\"lbl\"><span>Thường</span><span>${normal} key (${nPct}%)</span></div>",
+  "      <div class=\"type-bar-track\"><div class=\"type-bar-fill\" style=\"width:${nPct}%; background:var(--muted);\"></div></div>",
+  "    </div>",
+  "  `;",
+  "",
+  "  // expiry table",
+  "  const tbody = document.querySelector('#expiryTable tbody');",
+  "  tbody.innerHTML = '';",
+  "  if(!keys.length){",
+  "    tbody.innerHTML = '<tr><td colspan=\"5\" style=\"color:var(--muted); text-align:center; padding:24px;\">Chưa có key nào được tạo</td></tr>';",
+  "  } else {",
+  "    keys.forEach(k=>{",
+  "      const st = computeStatus(k);",
+  "      const tr = document.createElement('tr');",
+  "      tr.innerHTML = `",
+  "        <td class=\"mono\">${k.value}</td>",
+  "        <td><span class=\"badge ${k.type}\">${k.type==='premium'?'★ Premium':'Thường'}</span></td>",
+  "        <td><span class=\"badge ${st}\">${STATUS_LABEL[st]}</span></td>",
+  "        <td>${k.expiresAt ? formatDateTime(k.expiresAt) : 'Không giới hạn'}</td>",
+  "        <td>${formatRemaining(k.expiresAt)}</td>",
+  "      `;",
+  "      tbody.appendChild(tr);",
+  "    });",
+  "  }",
+  "",
+  "  // login history table",
+  "  const ltbody = document.querySelector('#loginTable tbody');",
+  "  ltbody.innerHTML = '';",
+  "  loginHistory.forEach(h=>{",
+  "    const tr = document.createElement('tr');",
+  "    tr.innerHTML = `",
+  "      <td>${formatDateTime(h.time)}</td>",
+  "      <td>${h.user}</td>",
+  "      <td><span class=\"pill ${h.success?'ok':'danger'}\">${h.success?'Thành công':'Thất bại'}</span></td>",
+  "    `;",
+  "    ltbody.appendChild(tr);",
+  "  });",
+  "}",
+  "",
+  "/* ============ SECURITY PAGE (dữ liệu thật do admin thao tác, không tự sinh số liệu ảo) ============ */",
+  "let blockedIPs = []; // chỉ có phần tử khi admin tự thêm",
+  "let lastScanTime = null;",
+  "",
+  "function renderSecurityPage(){",
+  "  $('secBlockedIP').textContent = blockedIPs.length;",
+  "  $('secLastScan').textContent = lastScanTime ? formatDateTime(lastScanTime) : 'Chưa đánh giá';",
+  "  renderScanChecklist();",
+  "",
+  "  const tbody = document.querySelector('#ipTable tbody');",
+  "  tbody.innerHTML = '';",
+  "  if(!blockedIPs.length){",
+  "    tbody.innerHTML = '<tr><td colspan=\"5\" style=\"color:var(--muted); text-align:center; padding:24px;\">Không có IP nào bị chặn</td></tr>';",
+  "  } else {",
+  "    blockedIPs.forEach((b,idx)=>{",
+  "      const tr = document.createElement('tr');",
+  "      tr.innerHTML = `",
+  "        <td class=\"mono\">${b.ip}</td>",
+  "        <td>${b.reason}</td>",
+  "        <td>${formatDateTime(b.time)}</td>",
+  "        <td><span class=\"pill danger\">Đã chặn</span></td>",
+  "        <td><button class=\"btn btn-ghost btn-inline\" data-unblock=\"${idx}\" style=\"padding:6px 12px; font-size:11.5px;\">Bỏ chặn</button></td>",
+  "      `;",
+  "      tbody.appendChild(tr);",
+  "    });",
+  "  }",
+  "}",
+  "",
+  "document.querySelector('#ipTable').addEventListener('click', (e)=>{",
+  "  const btn = e.target.closest('[data-unblock]');",
+  "  if(!btn) return;",
+  "  const idx = parseInt(btn.dataset.unblock);",
+  "  const ip = blockedIPs[idx]?.ip;",
+  "  blockedIPs.splice(idx,1);",
+  "  renderSecurityPage();",
+  "  showToast('Đã bỏ chặn IP: '+ip);",
+  "});",
+  "",
+  "$('btnRefreshIP').addEventListener('click', ()=>{",
+  "  $('blockIpValue').value = '';",
+  "  $('blockIpModalBg').classList.add('show');",
+  "});",
+  "$('blockIpCancel').addEventListener('click', ()=> $('blockIpModalBg').classList.remove('show'));",
+  "$('blockIpConfirm').addEventListener('click', ()=>{",
+  "  const ip = $('blockIpValue').value.trim();",
+  "  if(!ip){ showToast('Vui lòng nhập địa chỉ IP'); return; }",
+  "  blockedIPs.unshift({ ip, reason: $('blockIpReason').value, time: new Date() });",
+  "  $('blockIpModalBg').classList.remove('show');",
+  "  renderSecurityPage();",
+  "  showToast('Đã chặn IP: '+ip);",
+  "});",
+  "",
+  "const VULN_CHECKS = [",
+  "  {name:'Cổng dịch vụ không cần thiết', desc:'Kiểm tra các cổng đang mở ngoài dự kiến'},",
+  "  {name:'Chứng chỉ SSL/TLS', desc:'Kiểm tra hiệu lực và cấu hình chứng chỉ'},",
+  "  {name:'Mật khẩu quản trị mặc định', desc:'Kiểm tra tài khoản còn dùng mật khẩu mặc định'},",
+  "  {name:'Cập nhật phần mềm máy chủ', desc:'Kiểm tra phiên bản phần mềm đã lỗi thời'},",
+  "  {name:'Tường lửa (Firewall)', desc:'Kiểm tra trạng thái hoạt động của firewall'},",
+  "  {name:'Bản vá bảo mật hệ điều hành', desc:'Kiểm tra các bản vá còn thiếu'},",
+  "  {name:'Phân quyền thư mục / tệp tin', desc:'Kiểm tra quyền truy cập không phù hợp'},",
+  "  {name:'Giới hạn đăng nhập sai (rate limit)', desc:'Kiểm tra cơ chế chống dò mật khẩu'}",
+  "];",
+  "",
+  "let scanState = {}; // { [checkName]: 'ok'|'warn'|'fail' } — chỉ đổi khi admin tự chọn",
+  "",
+  "function renderScanChecklist(){",
+  "  const resultsBox = $('scanResults');",
+  "  resultsBox.innerHTML = '';",
+  "  VULN_CHECKS.forEach(c=>{",
+  "    const status = scanState[c.name] || null;",
+  "    const item = document.createElement('div');",
+  "    item.className = 'scan-item';",
+  "    item.innerHTML = `",
+  "      <div>",
+  "        <div class=\"name\">${c.name}</div>",
+  "        <div class=\"desc\">${c.desc}</div>",
+  "      </div>",
+  "      <div class=\"chip-toggle\" data-check=\"${c.name}\" style=\"margin:0;\">",
+  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"ok-${c.name}\" ${status==='ok'?'checked':''}><label for=\"ok-${c.name}\">Đạt</label>",
+  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"warn-${c.name}\" ${status==='warn'?'checked':''}><label for=\"warn-${c.name}\">Cảnh báo</label>",
+  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"fail-${c.name}\" ${status==='fail'?'checked':''}><label for=\"fail-${c.name}\">Nguy hiểm</label>",
+  "      </div>",
+  "    `;",
+  "    resultsBox.appendChild(item);",
+  "  });",
+  "  updateScanSummary();",
+  "}",
+  "",
+  "$('scanResults').addEventListener('change', (e)=>{",
+  "  const group = e.target.closest('[data-check]');",
+  "  if(!group) return;",
+  "  const name = group.dataset.check;",
+  "  const status = e.target.id.startsWith('ok-') ? 'ok' : e.target.id.startsWith('warn-') ? 'warn' : 'fail';",
+  "  scanState[name] = status;",
+  "  lastScanTime = new Date();",
+  "  updateScanSummary();",
+  "});",
+  "",
+  "function updateScanSummary(){",
+  "  const evaluated = Object.values(scanState);",
+  "  const failCount = evaluated.filter(s=>s==='fail').length;",
+  "  const warnCount = evaluated.filter(s=>s==='warn').length;",
+  "  const okCount = evaluated.filter(s=>s==='ok').length;",
+  "  $('secStatus').textContent = evaluated.length===0 ? 'Chưa đánh giá' : failCount>0 ? 'Nguy hiểm' : warnCount>0 ? 'Cảnh báo' : 'An toàn';",
+  "  $('secLastScan').textContent = lastScanTime ? formatDateTime(lastScanTime) : 'Chưa đánh giá';",
+  "  $('scanSummary').textContent = evaluated.length",
+  "    ? `Đã đánh giá ${evaluated.length}/${VULN_CHECKS.length} mục — ${failCount} nguy hiểm, ${warnCount} cảnh báo, ${okCount} đạt.`",
+  "    : 'Chưa có mục nào được đánh giá. Chọn kết quả cho từng mục ở trên.';",
+  "}",
+  "",
+  "$('btnResetScan').addEventListener('click', ()=>{",
+  "  scanState = {};",
+  "  lastScanTime = null;",
+  "  renderScanChecklist();",
+  "  showToast('Đã đặt lại checklist bảo mật');",
+  "});",
+  "",
+  "/* Refresh time-sensitive text periodically while app is open */",
+  "setInterval(()=>{",
+  "  if(currentPage==='keys') render();",
+  "  if(currentPage==='stats') renderStatsPage();",
+  "  if(currentRole==='seller') applySellerAccountEffects();",
+  "}, 30000);",
+  "",
+  "/* ============================================================",
+  "   NÂNG CẤP MỚI (chỉ bổ sung — không sửa code phía trên):",
+  "   1) Tự động lưu/tải toàn bộ dữ liệu qua server backend thật",
+  "      (repo \"server---proxy\": index.js + package.json) — tải lại",
+  "      trang KHÔNG mất dữ liệu.",
+  "   2) Trang \"API Key Server\" — hiển thị link xác thực API key",
+  "      thật để dán vào app/tool bên ngoài.",
+  "   3) Tự động nhận diện app/tool nào đang gọi link xác thực,",
+  "      admin bấm Cho phép / Từ chối cho từng app.",
+  "   Bắt buộc: deploy backend (index.js) và sửa hằng số API_BASE",
+  "   bên dưới thành địa chỉ server đó (xem README.md).",
+  "   ============================================================ */",
+  "",
+  "const API_BASE = ''; // Giao diện và server API giờ đã được gộp chung 1 file index.js, chạy cùng domain nên để trống (dùng đường dẫn tương đối)",
+  "",
+  "/* ---------- 1) AUTO LƯU / TẢI TOÀN BỘ DỮ LIỆU ---------- */",
+  "let stateLoaded = false;",
+  "let lastSavedSnapshot = '';",
+  "",
+  "function collectAppState(){",
+  "  return { adminPassword, loginHistory, keysStore, sellers, blockedIPs, scanState, lastScanTime, statsHidden, products, discountCodes };",
+  "}",
+  "",
+  "function reviveDates(state){",
+  "  if(Array.isArray(state.loginHistory)) state.loginHistory.forEach(h=>{ h.time = h.time ? new Date(h.time) : new Date(); });",
+  "  if(state.keysStore){",
+  "    Object.keys(state.keysStore).forEach(owner=>{",
+  "      (state.keysStore[owner]||[]).forEach(k=>{",
+  "        k.createdAt = k.createdAt ? new Date(k.createdAt) : new Date();",
+  "        k.expiresAt = k.expiresAt ? new Date(k.expiresAt) : null;",
+  "      });",
+  "    });",
+  "  }",
+  "  if(Array.isArray(state.sellers)) state.sellers.forEach(s=>{",
+  "    s.createdAt = s.createdAt ? new Date(s.createdAt) : new Date();",
+  "    s.expiresAt = s.expiresAt ? new Date(s.expiresAt) : null;",
+  "    (s.notifications||[]).forEach(n=>{ n.time = n.time ? new Date(n.time) : new Date(); });",
+  "  });",
+  "  if(Array.isArray(state.blockedIPs)) state.blockedIPs.forEach(b=>{ b.time = b.time ? new Date(b.time) : new Date(); });",
+  "  if(Array.isArray(state.discountCodes)) state.discountCodes.forEach(d=>{",
+  "    d.expiresAt = d.expiresAt ? new Date(d.expiresAt) : null;",
+  "    d.createdAt = d.createdAt ? new Date(d.createdAt) : new Date();",
+  "  });",
+  "  if(Array.isArray(state.products)) state.products.forEach(p=>{ p.createdAt = p.createdAt ? new Date(p.createdAt) : new Date(); });",
+  "  return state;",
+  "}",
+  "",
+  "function applyAppState(s){",
+  "  if(!s || typeof s !== 'object') return;",
+  "  reviveDates(s);",
+  "  if(s.adminPassword) adminPassword = s.adminPassword;",
+  "  if(Array.isArray(s.loginHistory)) loginHistory = s.loginHistory;",
+  "  if(s.keysStore && typeof s.keysStore==='object') keysStore = s.keysStore;",
+  "  if(Array.isArray(s.sellers)) sellers = s.sellers;",
+  "  if(Array.isArray(s.blockedIPs)) blockedIPs = s.blockedIPs;",
+  "  if(s.scanState && typeof s.scanState==='object') scanState = s.scanState;",
+  "  lastScanTime = s.lastScanTime ? new Date(s.lastScanTime) : null;",
+  "  if(typeof s.statsHidden === 'boolean') statsHidden = s.statsHidden;",
+  "  if(Array.isArray(s.products)) products = s.products;",
+  "  if(Array.isArray(s.discountCodes)) discountCodes = s.discountCodes;",
+  "  if(currentAccount && keysStore[currentAccount]) setKeys(keysStore[currentAccount]);",
+  "}",
+  "",
+  "async function loadStateFromServer(){",
+  "  const loginBtn = document.getElementById('btnLogin');",
+  "  if(loginBtn){ loginBtn.disabled = true; loginBtn.textContent = 'Đang tải dữ liệu từ server...'; }",
+  "  try{",
+  "    const res = await fetch(API_BASE + '/api/state', { cache:'no-store' });",
+  "    if(!res.ok) throw new Error('HTTP ' + res.status);",
+  "    const s = await res.json();",
+  "    applyAppState(s);",
+  "    lastSavedSnapshot = JSON.stringify(collectAppState());",
+  "    const note = document.getElementById('apiConnStatusNote');",
+  "    if(note) note.textContent = '✔ Đã kết nối máy chủ backend. Dữ liệu được tự động lưu và khôi phục khi tải lại trang.';",
+  "  }catch(e){",
+  "    console.warn('[KeyVault] Không kết nối được backend. Hãy deploy repo backend (index.js) rồi sửa API_BASE trong file này thành đúng địa chỉ server.', e);",
+  "    const note = document.getElementById('apiConnStatusNote');",
+  "    if(note) note.textContent = '⚠ Chưa kết nối được máy chủ backend. Kiểm tra: (1) server (index.js) đã chạy chưa, (2) biến API_BASE trong file này đã sửa đúng địa chỉ server chưa. Dữ liệu sẽ KHÔNG được lưu khi tải lại trang cho tới khi kết nối được. Xem README.md.';",
+  "  } finally {",
+  "    stateLoaded = true;",
+  "    if(loginBtn){ loginBtn.disabled = false; loginBtn.textContent = 'Đăng nhập'; }",
+  "    refreshAllVisiblePages();",
+  "  }",
+  "}",
+  "",
+  "async function saveStateToServer(force){",
+  "  if(!stateLoaded) return;",
+  "  const snap = JSON.stringify(collectAppState());",
+  "  if(!force && snap === lastSavedSnapshot) return;",
+  "  lastSavedSnapshot = snap;",
+  "  try{",
+  "    await fetch(API_BASE + '/api/state', { method:'POST', headers:{'Content-Type':'application/json'}, body: snap });",
+  "  }catch(e){",
+  "    console.warn('[KeyVault] Lưu dữ liệu lên server thất bại, sẽ tự thử lại.', e);",
+  "    lastSavedSnapshot = ''; // buộc lần chạy tiếp theo thử lưu lại",
+  "  }",
+  "}",
+  "",
+  "function refreshAllVisiblePages(){",
+  "  if(currentRole) applyRoleVisibility();",
+  "  if(currentPage==='keys') render();",
+  "  if(currentPage==='stats') renderStatsPage();",
+  "  if(currentPage==='security') renderSecurityPage();",
+  "  if(currentPage==='sellers') renderSellersPage();",
+  "  if(currentPage==='apikey') renderApiKeyPage();",
+  "  if(currentPage==='products') renderProductsPage();",
+  "}",
+  "",
+  "setInterval(()=> saveStateToServer(false), 4000); // tự lưu định kỳ, chỉ gửi khi có thay đổi thật",
+  "window.addEventListener('beforeunload', ()=>{",
+  "  if(!stateLoaded) return;",
+  "  const snap = JSON.stringify(collectAppState());",
+  "  if(snap === lastSavedSnapshot) return;",
+  "  try{ navigator.sendBeacon(API_BASE + '/api/state', new Blob([snap], {type:'application/json'})); }catch(e){}",
+  "});",
+  "",
+  "loadStateFromServer();",
+  "",
+  "/* ---------- 2) & 3) TRANG \"API KEY SERVER\" ---------- */",
+  "let apiApps = [];",
+  "let apiLogs = [];",
+  "",
+  "function setupApiKeyLinks(){",
+  "  const origin = API_BASE; // backend nằm ở domain riêng (repo \"server---proxy\"), dùng thẳng API_BASE làm gốc",
+  "  const verifyUrl = origin + '/api/verify';",
+  "  document.getElementById('apiVerifyLink').value = verifyUrl;",
+  "  const appId = (document.getElementById('apiAppIdInput').value || 'my-app-01').trim() || 'my-app-01';",
+  "  document.getElementById('apiVerifyExample').value = `${verifyUrl}?key=KEY_CUA_KHACH_HANG&app=${encodeURIComponent(appId)}`;",
+  "  document.getElementById('apiCodeSample').textContent =",
+  "`// Dán đoạn này vào code xác thực key của app/tool bạn",
+  "const res = await fetch(\"${verifyUrl}?key=\" + userKey + \"&app=${appId}\");",
+  "const data = await res.json();",
+  "",
+  "if (data.valid) {",
+  "  // Key hợp lệ VÀ app/tool này đã được admin cho phép -> chạy tiếp",
+  "} else {",
+  "  // data.reason: \"key_not_found\" | \"app_pending_approval\" | \"app_denied\" | \"missing_key\"",
+  "  // Key sai, hết hạn/bị cấm, hoặc app chưa được cấp phép -> chặn sử dụng",
+  "  console.log(data.reason);",
+  "}`;",
+  "}",
+  "",
+  "async function fetchApiApps(){",
+  "  try{",
+  "    const res = await fetch(API_BASE + '/api/apps', {cache:'no-store'});",
+  "    apiApps = res.ok ? await res.json() : [];",
+  "  }catch(e){ /* giữ nguyên danh sách cũ nếu mất kết nối tạm thời */ }",
+  "  renderApiAppsTable();",
+  "}",
+  "",
+  "async function fetchApiLogs(){",
+  "  try{",
+  "    const res = await fetch(API_BASE + '/api/logs', {cache:'no-store'});",
+  "    apiLogs = res.ok ? await res.json() : [];",
+  "  }catch(e){ /* giữ nguyên log cũ nếu mất kết nối tạm thời */ }",
+  "  renderApiLogsTable();",
+  "}",
+  "",
+  "function renderApiAppsTable(){",
+  "  const total = apiApps.length;",
+  "  const pending = apiApps.filter(a=>a.status==='pending').length;",
+  "  const allowed = apiApps.filter(a=>a.status==='allowed').length;",
+  "  const denied = apiApps.filter(a=>a.status==='denied').length;",
+  "  document.getElementById('apiTotalApps').textContent = total;",
+  "  document.getElementById('apiPendingApps').textContent = pending;",
+  "  document.getElementById('apiAllowedApps').textContent = allowed;",
+  "  document.getElementById('apiDeniedApps').textContent = denied;",
+  "",
+  "  const tbody = document.querySelector('#apiAppsTable tbody');",
+  "  const empty = document.getElementById('apiAppsEmpty');",
+  "  tbody.innerHTML = '';",
+  "  empty.style.display = total ? 'none' : '';",
+  "  const STATUS_MAP = { allowed:{cls:'available', label:'✔ Cho phép'}, denied:{cls:'banned', label:'✕ Từ chối'}, pending:{cls:'sold', label:'⏳ Chờ duyệt'} };",
+  "  apiApps",
+  "    .slice()",
+  "    .sort((a,b)=> new Date(b.lastUsedAt||b.createdAt) - new Date(a.lastUsedAt||a.createdAt))",
+  "    .forEach(a=>{",
+  "      const st = STATUS_MAP[a.status] || STATUS_MAP.pending;",
+  "      const tr = document.createElement('tr');",
+  "      tr.innerHTML = `",
+  "        <td class=\"mono\">${a.appId}</td>",
+  "        <td><span class=\"badge ${st.cls}\">${st.label}</span></td>",
+  "        <td>${a.lastUsedAt ? formatDateTime(new Date(a.lastUsedAt)) : '—'}</td>",
+  "        <td>${a.totalChecks||0}</td>",
+  "        <td class=\"actions\">",
+  "          <button class=\"btn btn-ghost btn-inline\" data-app-action=\"approve\" data-id=\"${a.id}\" style=\"padding:6px 12px; font-size:11.5px;\">Cho phép</button>",
+  "          <button class=\"btn btn-danger-ghost btn-inline\" data-app-action=\"deny\" data-id=\"${a.id}\" style=\"padding:6px 12px; font-size:11.5px;\">Từ chối</button>",
+  "          <button class=\"icon-btn danger\" data-app-action=\"remove\" data-id=\"${a.id}\" title=\"Xoá ứng dụng\">✕</button>",
+  "        </td>",
+  "      `;",
+  "      tbody.appendChild(tr);",
+  "    });",
+  "}",
+  "",
+  "function renderApiLogsTable(){",
+  "  const tbody = document.querySelector('#apiLogsTable tbody');",
+  "  tbody.innerHTML = '';",
+  "  if(!apiLogs.length){",
+  "    tbody.innerHTML = '<tr><td colspan=\"4\" style=\"color:var(--muted); text-align:center; padding:24px;\">Chưa có lượt kiểm tra key nào</td></tr>';",
+  "    return;",
+  "  }",
+  "  apiLogs.slice(0,50).forEach(l=>{",
+  "    const tr = document.createElement('tr');",
+  "    tr.innerHTML = `",
+  "      <td>${formatDateTime(new Date(l.time))}</td>",
+  "      <td class=\"mono\">${l.appId}</td>",
+  "      <td class=\"mono\">${l.key}</td>",
+  "      <td><span class=\"pill ${l.valid?'ok':'danger'}\">${l.valid?'Hợp lệ':'Không hợp lệ'}</span></td>",
+  "    `;",
+  "    tbody.appendChild(tr);",
+  "  });",
+  "}",
+  "",
+  "function renderApiKeyPage(){",
+  "  setupApiKeyLinks();",
+  "  fetchApiApps();",
+  "  fetchApiLogs();",
+  "}",
+  "",
+  "document.getElementById('btnGenAppExample').addEventListener('click', setupApiKeyLinks);",
+  "document.getElementById('btnRefreshApps').addEventListener('click', ()=>{ fetchApiApps(); fetchApiLogs(); });",
+  "",
+  "function copyInputValue(inputId){",
+  "  const el = document.getElementById(inputId);",
+  "  el.select();",
+  "  if(navigator.clipboard){",
+  "    navigator.clipboard.writeText(el.value).then(()=> showToast('Đã sao chép')).catch(()=> showToast('Không sao chép được, vui lòng copy thủ công'));",
+  "  } else {",
+  "    showToast('Vui lòng copy thủ công (Ctrl+C)');",
+  "  }",
+  "}",
+  "document.getElementById('btnCopyVerifyLink').addEventListener('click', ()=> copyInputValue('apiVerifyLink'));",
+  "document.getElementById('btnCopyVerifyExample').addEventListener('click', ()=> copyInputValue('apiVerifyExample'));",
+  "",
+  "document.querySelector('#apiAppsTable').addEventListener('click', async (e)=>{",
+  "  const btn = e.target.closest('[data-app-action]');",
+  "  if(!btn) return;",
+  "  const id = btn.dataset.id;",
+  "  const action = btn.dataset.appAction;",
+  "  try{",
+  "    if(action==='approve'){",
+  "      await fetch(`${API_BASE}/api/apps/${id}/approve`, {method:'POST'});",
+  "      showToast('Đã cho phép ứng dụng dùng server key');",
+  "    } else if(action==='deny'){",
+  "      await fetch(`${API_BASE}/api/apps/${id}/deny`, {method:'POST'});",
+  "      showToast('Đã từ chối ứng dụng');",
+  "    } else if(action==='remove'){",
+  "      await fetch(`${API_BASE}/api/apps/${id}`, {method:'DELETE'});",
+  "      showToast('Đã xoá ứng dụng khỏi danh sách');",
+  "    }",
+  "  }catch(err){",
+  "    showToast('Thao tác thất bại — kiểm tra kết nối tới server backend (API_BASE)');",
+  "  }",
+  "  fetchApiApps();",
+  "});",
+  "",
+  "// Khi đang mở trang API Key Server, tự động làm mới để nhận diện app mới gọi vào gần như real-time",
+  "setInterval(()=>{ if(currentPage==='apikey'){ fetchApiApps(); fetchApiLogs(); } }, 5000);",
+  "",
+  "/* ============ TRANG SẢN PHẨM (STOREFRONT) & MÃ GIẢM GIÁ ============ */",
+  "let editingProductId = null;",
+  "let prodLogoDataUrl = '';",
+  "",
+  "document.getElementById('prodLogoInput').addEventListener('change', (e)=>{",
+  "  const file = e.target.files && e.target.files[0];",
+  "  if(!file) return;",
+  "  const reader = new FileReader();",
+  "  reader.onload = ()=>{",
+  "    prodLogoDataUrl = reader.result;",
+  "    document.getElementById('prodLogoPreview').innerHTML = `<img src=\"${prodLogoDataUrl}\" style=\"width:100%; height:100%; object-fit:cover;\">`;",
+  "  };",
+  "  reader.readAsDataURL(file);",
+  "});",
+  "",
+  "document.querySelectorAll('#prodDurationToggle input').forEach(el=>{",
+  "  el.addEventListener('change', ()=>{",
+  "    document.getElementById('prodDurationFields').style.display = document.getElementById('pdurUnlimited').checked ? 'none' : 'grid';",
+  "  });",
+  "});",
+  "",
+  "function resetProductForm(){",
+  "  editingProductId = null;",
+  "  prodLogoDataUrl = '';",
+  "  document.getElementById('productFormTitle').textContent = 'Thêm sản phẩm mới';",
+  "  document.getElementById('prodName').value = '';",
+  "  document.getElementById('prodKeyPrefix').value = '';",
+  "  document.getElementById('prodPrice').value = '';",
+  "  document.getElementById('prodMaxDevices').value = '1';",
+  "  document.getElementById('pdurLimited').checked = true;",
+  "  document.getElementById('prodDurationAmount').value = '30';",
+  "  document.getElementById('prodDurationUnit').value = 'day';",
+  "  document.getElementById('prodDurationFields').style.display = 'grid';",
+  "  document.getElementById('prodActive').checked = true;",
+  "  document.getElementById('prodLogoInput').value = '';",
+  "  document.getElementById('prodLogoPreview').innerHTML = '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" style=\"width:22px; height:22px; color:var(--muted);\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><circle cx=\"9\" cy=\"9\" r=\"2\"/><path d=\"m21 15-5-5L5 21\"/></svg>';",
+  "  document.getElementById('btnCancelEditProduct').style.display = 'none';",
+  "}",
+  "",
+  "document.getElementById('btnCancelEditProduct').addEventListener('click', resetProductForm);",
+  "",
+  "document.getElementById('btnSaveProduct').addEventListener('click', ()=>{",
+  "  const name = document.getElementById('prodName').value.trim();",
+  "  const keyPrefix = document.getElementById('prodKeyPrefix').value.trim().toUpperCase();",
+  "  const price = document.getElementById('prodPrice').value.trim();",
+  "  const maxDevices = Math.max(1, Math.min(20, parseInt(document.getElementById('prodMaxDevices').value)||1));",
+  "  const isUnlimited = document.getElementById('pdurUnlimited').checked;",
+  "  const durationAmount = isUnlimited ? null : Math.max(1, parseFloat(document.getElementById('prodDurationAmount').value)||1);",
+  "  const durationUnit = isUnlimited ? 'unlimited' : document.getElementById('prodDurationUnit').value;",
+  "  const active = document.getElementById('prodActive').checked;",
+  "",
+  "  if(!name){ showToast('Vui lòng nhập tên sản phẩm'); return; }",
+  "  if(!keyPrefix){ showToast('Vui lòng nhập tiền tố key liên kết'); return; }",
+  "  if(!price){ showToast('Vui lòng nhập giá bán'); return; }",
+  "",
+  "  if(editingProductId){",
+  "    const p = products.find(x=>x.id===editingProductId);",
+  "    if(p){",
+  "      p.name = name; p.keyPrefix = keyPrefix; p.price = price; p.maxDevices = maxDevices;",
+  "      p.durationAmount = durationAmount; p.durationUnit = durationUnit; p.active = active;",
+  "      if(prodLogoDataUrl) p.logo = prodLogoDataUrl;",
+  "    }",
+  "    showToast('Đã cập nhật sản phẩm');",
+  "  } else {",
+  "    products.unshift({",
+  "      id: 'p'+Date.now()+Math.random().toString(36).slice(2,7),",
+  "      name, keyPrefix, price, maxDevices,",
+  "      durationAmount, durationUnit, active,",
+  "      logo: prodLogoDataUrl || '',",
+  "      createdAt: new Date()",
+  "    });",
+  "    showToast('Đã thêm sản phẩm mới — sẽ hiện ngay trên trang bán key');",
+  "  }",
+  "  resetProductForm();",
+  "  saveStateToServer(true);",
+  "  renderProductsPage();",
+  "});",
+  "",
+  "function fmtDuration(p){",
+  "  if(p.durationUnit==='unlimited' || !p.durationAmount) return 'Không giới hạn';",
+  "  const unitLabel = p.durationUnit==='hour' ? 'giờ' : p.durationUnit==='month' ? 'tháng' : 'ngày';",
+  "  return p.durationAmount + ' ' + unitLabel;",
+  "}",
+  "",
+  "function renderProductsPage(){",
+  "  const list = document.getElementById('productList');",
+  "  const empty = document.getElementById('productEmpty');",
+  "  list.innerHTML = '';",
+  "  empty.style.display = products.length ? 'none' : 'block';",
+  "  products.forEach(p=>{",
+  "    const stock = Object.values(keysStore).flat().filter(k=> k.value.startsWith(p.keyPrefix+'-') && computeStatus(k)==='available').length;",
+  "    const div = document.createElement('div');",
+  "    div.className = 'ticket';",
+  "    div.innerHTML = `",
+  "      <div class=\"ticket-top\">",
+  "        <div style=\"display:flex; align-items:center; gap:12px;\">",
+  "          <div style=\"width:40px; height:40px; border-radius:10px; overflow:hidden; background:var(--panel-2); border:1px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;\">",
+  "            ${p.logo ? `<img src=\"${p.logo}\" style=\"width:100%; height:100%; object-fit:cover;\">` : '📦'}",
+  "          </div>",
+  "          <div class=\"key\" style=\"font-family:'Inter',sans-serif;\">${p.name}</div>",
+  "        </div>",
+  "        <div class=\"ticket-badges\">",
+  "          <span class=\"badge ${p.active ? 'available' : 'expired'}\">${p.active ? 'Đang hiển thị' : 'Đã ẩn'}</span>",
+  "        </div>",
+  "      </div>",
+  "      <div class=\"ticket-bottom\">",
+  "        <div class=\"meta\">Prefix: <b>${p.keyPrefix}</b> &nbsp;·&nbsp; Giá: <b>${fmtMoney(p.price)}</b> &nbsp;·&nbsp; Thời hạn: <b>${fmtDuration(p)}</b> &nbsp;·&nbsp; Thiết bị: <b>${p.maxDevices||1}</b> &nbsp;·&nbsp; Còn hàng: <b>${stock}</b></div>",
+  "        <div class=\"actions\">",
+  "          <button class=\"icon-btn\" title=\"Sửa\" data-act=\"editprod\" data-id=\"${p.id}\">",
+  "            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z\"/></svg>",
+  "          </button>",
+  "          <button class=\"icon-btn\" title=\"${p.active ? 'Ẩn khỏi trang bán key' : 'Hiện lên trang bán key'}\" data-act=\"toggleprod\" data-id=\"${p.id}\">",
+  "            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>",
+  "          </button>",
+  "          <button class=\"icon-btn danger\" title=\"Xoá sản phẩm\" data-act=\"delprod\" data-id=\"${p.id}\">",
+  "            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg>",
+  "          </button>",
+  "        </div>",
+  "      </div>",
+  "    `;",
+  "    list.appendChild(div);",
+  "  });",
+  "  renderDiscountTable();",
+  "}",
+  "",
+  "document.getElementById('productList').addEventListener('click', (e)=>{",
+  "  const btn = e.target.closest('.icon-btn');",
+  "  if(!btn) return;",
+  "  const id = btn.dataset.id;",
+  "  const act = btn.dataset.act;",
+  "  const p = products.find(x=>x.id===id);",
+  "  if(!p) return;",
+  "  if(act==='delprod'){",
+  "    if(!confirm('Xoá sản phẩm \"'+p.name+'\"? Key trong kho sẽ KHÔNG bị xoá, chỉ gỡ sản phẩm khỏi trang bán key.')) return;",
+  "    products = products.filter(x=>x.id!==id);",
+  "    showToast('Đã xoá sản phẩm');",
+  "  } else if(act==='toggleprod'){",
+  "    p.active = !p.active;",
+  "    showToast(p.active ? 'Đã hiện sản phẩm lên trang bán key' : 'Đã ẩn sản phẩm khỏi trang bán key');",
+  "  } else if(act==='editprod'){",
+  "    editingProductId = id;",
+  "    prodLogoDataUrl = p.logo || '';",
+  "    document.getElementById('productFormTitle').textContent = 'Chỉnh sửa sản phẩm';",
+  "    document.getElementById('prodName').value = p.name;",
+  "    document.getElementById('prodKeyPrefix').value = p.keyPrefix;",
+  "    document.getElementById('prodPrice').value = p.price;",
+  "    document.getElementById('prodMaxDevices').value = p.maxDevices || 1;",
+  "    if(p.durationUnit==='unlimited'){",
+  "      document.getElementById('pdurUnlimited').checked = true;",
+  "      document.getElementById('prodDurationFields').style.display = 'none';",
+  "    } else {",
+  "      document.getElementById('pdurLimited').checked = true;",
+  "      document.getElementById('prodDurationFields').style.display = 'grid';",
+  "      document.getElementById('prodDurationAmount').value = p.durationAmount || 30;",
+  "      document.getElementById('prodDurationUnit').value = p.durationUnit || 'day';",
+  "    }",
+  "    document.getElementById('prodActive').checked = !!p.active;",
+  "    document.getElementById('prodLogoPreview').innerHTML = p.logo ? `<img src=\"${p.logo}\" style=\"width:100%; height:100%; object-fit:cover;\">` : '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" style=\"width:22px; height:22px; color:var(--muted);\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><circle cx=\"9\" cy=\"9\" r=\"2\"/><path d=\"m21 15-5-5L5 21\"/></svg>';",
+  "    document.getElementById('btnCancelEditProduct').style.display = '';",
+  "    window.scrollTo({top:0, behavior:'smooth'});",
+  "    return;",
+  "  }",
+  "  saveStateToServer(true);",
+  "  renderProductsPage();",
+  "});",
+  "",
+  "/* ---- Mã giảm giá ---- */",
+  "document.getElementById('btnAddDiscount').addEventListener('click', ()=>{",
+  "  const code = document.getElementById('discCode').value.trim().toUpperCase();",
+  "  const percent = Math.max(1, Math.min(99, parseInt(document.getElementById('discPercent').value)||10));",
+  "  const maxUses = Math.max(0, parseInt(document.getElementById('discMaxUses').value)||0);",
+  "  const expiryRaw = document.getElementById('discExpiry').value;",
+  "  const expiresAt = expiryRaw ? new Date(expiryRaw) : null;",
+  "",
+  "  if(!code){ showToast('Vui lòng nhập mã giảm giá'); return; }",
+  "  if(discountCodes.some(d=>d.code===code)){ showToast('Mã giảm giá này đã tồn tại'); return; }",
+  "",
+  "  discountCodes.unshift({",
+  "    id: 'd'+Date.now()+Math.random().toString(36).slice(2,7),",
+  "    code, percent, maxUses, usedCount:0, expiresAt, active:true, createdAt: new Date()",
+  "  });",
+  "  document.getElementById('discCode').value = '';",
+  "  document.getElementById('discPercent').value = '10';",
+  "  document.getElementById('discMaxUses').value = '0';",
+  "  document.getElementById('discExpiry').value = '';",
+  "  showToast('Đã tạo mã giảm giá: '+code);",
+  "  saveStateToServer(true);",
+  "  renderDiscountTable();",
+  "});",
+  "",
+  "function renderDiscountTable(){",
+  "  const tbody = document.querySelector('#discountTable tbody');",
+  "  const empty = document.getElementById('discountEmpty');",
+  "  tbody.innerHTML = '';",
+  "  empty.style.display = discountCodes.length ? 'none' : 'block';",
+  "  discountCodes.forEach(d=>{",
+  "    const expired = d.expiresAt && new Date(d.expiresAt).getTime() < Date.now();",
+  "    const usedUp = d.maxUses > 0 && d.usedCount >= d.maxUses;",
+  "    const statusLabel = !d.active ? 'Đã tắt' : expired ? 'Hết hạn' : usedUp ? 'Hết lượt' : 'Đang hoạt động';",
+  "    const statusClass = !d.active ? 'expired' : expired ? 'expired' : usedUp ? 'expired' : 'available';",
+  "    const tr = document.createElement('tr');",
+  "    tr.innerHTML = `",
+  "      <td><code>${d.code}</code></td>",
+  "      <td>${d.percent}%</td>",
+  "      <td>${d.usedCount}${d.maxUses>0 ? '/'+d.maxUses : ''}</td>",
+  "      <td>${d.expiresAt ? formatDateTime(d.expiresAt) : 'Không giới hạn'}</td>",
+  "      <td><span class=\"badge ${statusClass}\">${statusLabel}</span></td>",
+  "      <td>",
+  "        <button class=\"icon-btn\" title=\"${d.active ? 'Tắt mã' : 'Bật lại mã'}\" data-act=\"toggledisc\" data-id=\"${d.id}\">",
+  "          <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>",
+  "        </button>",
+  "        <button class=\"icon-btn danger\" title=\"Xoá mã\" data-act=\"deldisc\" data-id=\"${d.id}\">",
+  "          <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg>",
+  "        </button>",
+  "      </td>",
+  "    `;",
+  "    tbody.appendChild(tr);",
+  "  });",
+  "}",
+  "",
+  "document.querySelector('#discountTable').addEventListener('click', (e)=>{",
+  "  const btn = e.target.closest('.icon-btn');",
+  "  if(!btn) return;",
+  "  const id = btn.dataset.id;",
+  "  const act = btn.dataset.act;",
+  "  const d = discountCodes.find(x=>x.id===id);",
+  "  if(!d) return;",
+  "  if(act==='deldisc'){",
+  "    if(!confirm('Xoá mã giảm giá \"'+d.code+'\"?')) return;",
+  "    discountCodes = discountCodes.filter(x=>x.id!==id);",
+  "    showToast('Đã xoá mã giảm giá');",
+  "  } else if(act==='toggledisc'){",
+  "    d.active = !d.active;",
+  "    showToast(d.active ? 'Đã bật lại mã' : 'Đã tắt mã');",
+  "  }",
+  "  saveStateToServer(true);",
+  "  renderDiscountTable();",
+  "});",
+  "</script>",
+  "</body>",
+  "</html>",
+  ""
+];
+/* ---------------- Trang bán key công khai (storefront), nhúng dạng base64 để tránh xung đột dấu backtick/${} ---------------- */
+const STORE_B64_CHUNKS = [
+  'PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9InZpIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9IlVURi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xLjAiPgo8dGl0bGU+S2V5VmF1bHQgU3RvcmUg4oCUIE11YSBLZXkgdHLhu7FjIHR1eeG6v248L3RpdGxlPgo8bGluayByZWw9InByZWNvbm5lY3QiIGhyZWY9Imh0dHBzOi8vZm9udHMuZ29vZ2xlYXBpcy5jb20iPgo8bGluayBocmVmPSJodHRwczovL2ZvbnRzLmdvb2dsZWFwaXMuY29tL2NzczI/ZmFt',
+  'aWx5PVNwYWNlK0dyb3Rlc2s6d2dodEA1MDA7NjAwOzcwMCZmYW1pbHk9SW50ZXI6d2dodEA0MDA7NTAwOzYwMDs3MDAmZmFtaWx5PUpldEJyYWlucytNb25vOndnaHRANTAwOzYwMDs3MDAmZGlzcGxheT1zd2FwIiByZWw9InN0eWxlc2hlZXQiPgo8c3R5bGU+CiAgOnJvb3R7CiAgICAtLWluazojRjdGN0Y1OwogICAgLS1wYW5lbDojRkZGRkZGOwogICAgLS1wYW5lbC0yOiNGQkZCRjk7CiAgICAtLWxpbmU6I0U0RTNERDsKICAgIC0tYnJhc3M6I0FEN0YxRTsKICAgIC0tYnJhc3Mtc29mdDojQzk5QTJFOwogICAgLS1icmFzcy10',
+  'aW50OiNGNkVDRDM7CiAgICAtLXRleHQ6IzFDMUIxODsKICAgIC0tbXV0ZWQ6IzdDN0E3MjsKICAgIC0tb2s6IzFGOEY2MzsKICAgIC0tb2stdGludDojRTRGNUVFOwogICAgLS1kYW5nZXI6I0MyM0I0QjsKICAgIC0tZGFuZ2VyLXRpbnQ6I0ZCRUFFQzsKICAgIC0tc2hhZG93OiAwIDFweCAycHggcmdiYSgyOCwyNywyNCwwLjA0KSwgMCA4cHggMjRweCAtMTJweCByZ2JhKDI4LDI3LDI0LDAuMTApOwogIH0KICAqe2JveC1zaXppbmc6Ym9yZGVyLWJveDt9CiAgaHRtbCxib2R5e21hcmdpbjowO3BhZGRpbmc6MDt9CiAgYm9keXsK',
+  'ICAgIGJhY2tncm91bmQ6CiAgICAgIHJhZGlhbC1ncmFkaWVudCgxMDAwcHggNTAwcHggYXQgODglIC04JSwgI0ZCRjJEQyAwJSwgdHJhbnNwYXJlbnQgNjAlKSwKICAgICAgdmFyKC0taW5rKTsKICAgIGNvbG9yOnZhcigtLXRleHQpOwogICAgZm9udC1mYW1pbHk6J0ludGVyJyxzYW5zLXNlcmlmOwogICAgbWluLWhlaWdodDoxMDB2aDsKICB9CiAgOjpzZWxlY3Rpb257YmFja2dyb3VuZDp2YXIoLS1icmFzcy10aW50KTsgY29sb3I6dmFyKC0tdGV4dCk7fQoKICBoZWFkZXIudG9wewogICAgcGFkZGluZzowIDI0cHg7CiAgICBi',
+  'b3JkZXItYm90dG9tOjFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgIHBvc2l0aW9uOnN0aWNreTsgdG9wOjA7IGJhY2tncm91bmQ6cmdiYSgyNTUsMjU1LDI1NSwwLjkyKTsgYmFja2Ryb3AtZmlsdGVyOmJsdXIoMTBweCk7IHotaW5kZXg6MjA7CiAgfQogIC50b3Atcm93ewogICAgbWF4LXdpZHRoOjEwODBweDsgbWFyZ2luOjAgYXV0bzsKICAgIGRpc3BsYXk6ZmxleDsgYWxpZ24taXRlbXM6Y2VudGVyOyBqdXN0aWZ5LWNvbnRlbnQ6c3BhY2UtYmV0d2VlbjsKICAgIHBhZGRpbmc6MThweCAwOwogIH0KICAuYnJhbmR7ZGlzcGxh',
+  'eTpmbGV4OyBhbGlnbi1pdGVtczpjZW50ZXI7IGdhcDoxMnB4O30KICAuYnJhbmQgLm1hcmt7CiAgICB3aWR0aDozNnB4OyBoZWlnaHQ6MzZweDsgYm9yZGVyLXJhZGl1czoxMHB4OwogICAgYmFja2dyb3VuZDpsaW5lYXItZ3JhZGllbnQoMTU1ZGVnLCB2YXIoLS1icmFzcy1zb2Z0KSwgdmFyKC0tYnJhc3MpIDY1JSk7CiAgICBkaXNwbGF5OmZsZXg7IGFsaWduLWl0ZW1zOmNlbnRlcjsganVzdGlmeS1jb250ZW50OmNlbnRlcjsKICAgIGJveC1zaGFkb3c6MCA0cHggMTRweCAtNHB4ICNBRDdGMUU2MDsKICB9CiAgLmJyYW5kIC5t',
+  'YXJrIHN2Z3t3aWR0aDoxOXB4OyBoZWlnaHQ6MTlweDsgY29sb3I6I2ZmZjt9CiAgLmJyYW5kIGgxe2ZvbnQtZmFtaWx5OidTcGFjZSBHcm90ZXNrJyxzYW5zLXNlcmlmOyBmb250LXNpemU6MTlweDsgbWFyZ2luOjA7IGxldHRlci1zcGFjaW5nOjAuMnB4O30KICAuYnJhbmQgLnRhZ3tmb250LXNpemU6MTAuNXB4OyBjb2xvcjp2YXIoLS1tdXRlZCk7IGxldHRlci1zcGFjaW5nOjEuNHB4OyB0ZXh0LXRyYW5zZm9ybTp1cHBlcmNhc2U7IG1hcmdpbi10b3A6MXB4O30KCiAgLnRvcC1hY3Rpb25ze2Rpc3BsYXk6ZmxleDsgYWxpZ24t',
+  'aXRlbXM6Y2VudGVyOyBnYXA6MTBweDt9CiAgLmJ0bnsKICAgIGFwcGVhcmFuY2U6bm9uZTsgYm9yZGVyOm5vbmU7IGN1cnNvcjpwb2ludGVyOwogICAgYmFja2dyb3VuZDpsaW5lYXItZ3JhZGllbnQoMTU1ZGVnLCB2YXIoLS1icmFzcy1zb2Z0KSwgdmFyKC0tYnJhc3MpIDcwJSk7CiAgICBjb2xvcjojZmZmOyBmb250LXdlaWdodDo2MDA7IGZvbnQtc2l6ZToxMy41cHg7CiAgICBwYWRkaW5nOjEwcHggMThweDsgYm9yZGVyLXJhZGl1czoxMHB4OwogICAgYm94LXNoYWRvdzowIDRweCAxNHB4IC02cHggI0FEN0YxRTgwOwogICAg',
+  'dHJhbnNpdGlvbjp0cmFuc2Zvcm0gLjEycywgYm94LXNoYWRvdyAuMTJzOwogIH0KICAuYnRuOmhvdmVye3RyYW5zZm9ybTp0cmFuc2xhdGVZKC0xcHgpO30KICAuYnRuLWdob3N0ewogICAgYmFja2dyb3VuZDp2YXIoLS1wYW5lbCk7IGNvbG9yOnZhcigtLXRleHQpOyBib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgYm94LXNoYWRvdzpub25lOwogIH0KICAuYWNjb3VudC1jaGlwewogICAgZGlzcGxheTpmbGV4OyBhbGlnbi1pdGVtczpjZW50ZXI7IGdhcDo4cHg7IGZvbnQtc2l6ZToxM3B4OyBmb250LXdlaWdodDo2',
+  'MDA7CiAgICBiYWNrZ3JvdW5kOnZhcigtLWJyYXNzLXRpbnQpOyBjb2xvcjp2YXIoLS1icmFzcyk7IHBhZGRpbmc6OHB4IDE0cHg7IGJvcmRlci1yYWRpdXM6MTBweDsKICB9CiAgLmFjY291bnQtY2hpcCBidXR0b257CiAgICBiYWNrZ3JvdW5kOm5vbmU7IGJvcmRlcjpub25lOyBjb2xvcjp2YXIoLS1tdXRlZCk7IGN1cnNvcjpwb2ludGVyOyBmb250LXNpemU6MTJweDsKICAgIHRleHQtZGVjb3JhdGlvbjp1bmRlcmxpbmU7IHBhZGRpbmc6MDsgZm9udC1mYW1pbHk6J0ludGVyJyxzYW5zLXNlcmlmOwogIH0KICAuYWRtaW4tbGlu',
+  'a3tmb250LXNpemU6MTJweDsgY29sb3I6dmFyKC0tbXV0ZWQpOyB0ZXh0LWRlY29yYXRpb246bm9uZTt9CiAgLmFkbWluLWxpbms6aG92ZXJ7Y29sb3I6dmFyKC0tYnJhc3MpOyB0ZXh0LWRlY29yYXRpb246dW5kZXJsaW5lO30KCiAgbWFpbnttYXgtd2lkdGg6MTA4MHB4OyBtYXJnaW46MCBhdXRvOyBwYWRkaW5nOjM2cHggMjRweCA4MHB4O30KCiAgLmhlcm97dGV4dC1hbGlnbjpjZW50ZXI7IG1hcmdpbi1ib3R0b206MzZweDt9CiAgLmhlcm8gaDJ7Zm9udC1mYW1pbHk6J1NwYWNlIEdyb3Rlc2snLHNhbnMtc2VyaWY7IGZvbnQt',
+  'c2l6ZToyOHB4OyBtYXJnaW46MCAwIDhweDt9CiAgLmhlcm8gcHtjb2xvcjp2YXIoLS1tdXRlZCk7IGZvbnQtc2l6ZToxNHB4OyBtYXJnaW46MDsgbGluZS1oZWlnaHQ6MS42O30KICAuaGVybyAuYmFkZ2Vze2Rpc3BsYXk6ZmxleDsganVzdGlmeS1jb250ZW50OmNlbnRlcjsgZ2FwOjEwcHg7IG1hcmdpbi10b3A6MTZweDsgZmxleC13cmFwOndyYXA7fQogIC5oZXJvIC5iYWRnZXsKICAgIGZvbnQtc2l6ZToxMS41cHg7IGNvbG9yOnZhcigtLWJyYXNzKTsgYmFja2dyb3VuZDp2YXIoLS1icmFzcy10aW50KTsKICAgIHBhZGRpbmc6',
+  'NnB4IDEycHg7IGJvcmRlci1yYWRpdXM6MjBweDsgZm9udC13ZWlnaHQ6NjAwOwogIH0KCiAgLmdyaWR7CiAgICBkaXNwbGF5OmdyaWQ7IGdyaWQtdGVtcGxhdGUtY29sdW1uczpyZXBlYXQoYXV0by1maWxsLCBtaW5tYXgoMjYwcHgsIDFmcikpOyBnYXA6MThweDsKICB9CiAgLmNhcmR7CiAgICBiYWNrZ3JvdW5kOnZhcigtLXBhbmVsKTsgYm9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTsgYm9yZGVyLXJhZGl1czoxNnB4OwogICAgcGFkZGluZzoyMnB4OyBib3gtc2hhZG93OnZhcigtLXNoYWRvdyk7CiAgICBkaXNwbGF5OmZs',
+  'ZXg7IGZsZXgtZGlyZWN0aW9uOmNvbHVtbjsgZ2FwOjEycHg7CiAgfQogIC5jYXJkIC5sb2dvewogICAgd2lkdGg6NTJweDsgaGVpZ2h0OjUycHg7IGJvcmRlci1yYWRpdXM6MTJweDsgb3ZlcmZsb3c6aGlkZGVuOwogICAgYmFja2dyb3VuZDp2YXIoLS1wYW5lbC0yKTsgYm9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgIGRpc3BsYXk6ZmxleDsgYWxpZ24taXRlbXM6Y2VudGVyOyBqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyOyBmb250LXNpemU6MjJweDsKICB9CiAgLmNhcmQgLmxvZ28gaW1ne3dpZHRoOjEwMCU7IGhlaWdo',
+  'dDoxMDAlOyBvYmplY3QtZml0OmNvdmVyO30KICAuY2FyZCBoM3tmb250LWZhbWlseTonU3BhY2UgR3JvdGVzaycsc2Fucy1zZXJpZjsgZm9udC1zaXplOjE3cHg7IG1hcmdpbjowO30KICAuY2FyZCAucHJpY2V7Zm9udC1mYW1pbHk6J0pldEJyYWlucyBNb25vJyxtb25vc3BhY2U7IGZvbnQtc2l6ZToyMHB4OyBmb250LXdlaWdodDo3MDA7IGNvbG9yOnZhcigtLWJyYXNzKTt9CiAgLmNhcmQgLm1ldGF7Zm9udC1zaXplOjEyLjVweDsgY29sb3I6dmFyKC0tbXV0ZWQpOyBkaXNwbGF5OmZsZXg7IGZsZXgtZGlyZWN0aW9uOmNvbHVt',
+  'bjsgZ2FwOjRweDt9CiAgLmNhcmQgLnN0b2Nre2ZvbnQtc2l6ZToxMS41cHg7IGZvbnQtd2VpZ2h0OjYwMDt9CiAgLmNhcmQgLnN0b2NrLmlue2NvbG9yOnZhcigtLW9rKTt9CiAgLmNhcmQgLnN0b2NrLm91dHtjb2xvcjp2YXIoLS1kYW5nZXIpO30KICAuY2FyZCAuYnV5LWJ0bnttYXJnaW4tdG9wOjZweDt9CiAgLmNhcmQgLmJ1eS1idG5bZGlzYWJsZWRde29wYWNpdHk6LjQ1OyBjdXJzb3I6bm90LWFsbG93ZWQ7IGJveC1zaGFkb3c6bm9uZTt9CgogIC5lbXB0eS1zdGF0ZXsKICAgIHRleHQtYWxpZ246Y2VudGVyOyBwYWRkaW5n',
+  'OjYwcHggMjBweDsgY29sb3I6dmFyKC0tbXV0ZWQpOwogICAgYm9yZGVyOjFweCBkYXNoZWQgdmFyKC0tbGluZSk7IGJvcmRlci1yYWRpdXM6MTZweDsgYmFja2dyb3VuZDp2YXIoLS1wYW5lbC0yKTsKICB9CiAgLmVtcHR5LXN0YXRlIC5iaWd7Zm9udC1zaXplOjE2cHg7IGZvbnQtd2VpZ2h0OjYwMDsgY29sb3I6dmFyKC0tdGV4dCk7IG1hcmdpbi1ib3R0b206NnB4O30KCiAgZm9vdGVye3RleHQtYWxpZ246Y2VudGVyOyBwYWRkaW5nOjI4cHg7IGNvbG9yOnZhcigtLW11dGVkKTsgZm9udC1zaXplOjExLjVweDt9CgogIC8qIC0t',
+  'LS0gTW9kYWwgLS0tLSAqLwogIC5tb2RhbC1iZ3sKICAgIGRpc3BsYXk6bm9uZTsgcG9zaXRpb246Zml4ZWQ7IGluc2V0OjA7IGJhY2tncm91bmQ6cmdiYSgyOCwyNywyNCwwLjQ1KTsKICAgIGFsaWduLWl0ZW1zOmNlbnRlcjsganVzdGlmeS1jb250ZW50OmNlbnRlcjsgei1pbmRleDoxMDA7IHBhZGRpbmc6MjBweDsKICB9CiAgLm1vZGFsLWJnLnNob3d7ZGlzcGxheTpmbGV4O30KICAubW9kYWx7CiAgICB3aWR0aDoxMDAlOyBtYXgtd2lkdGg6NDAwcHg7IGJhY2tncm91bmQ6dmFyKC0tcGFuZWwpOyBib3JkZXItcmFkaXVzOjE2',
+  'cHg7CiAgICBwYWRkaW5nOjI4cHggMjZweDsgYm94LXNoYWRvdzowIDIwcHggNjBweCAtMjBweCByZ2JhKDAsMCwwLDAuMzUpOwogICAgbWF4LWhlaWdodDo5MHZoOyBvdmVyZmxvdy15OmF1dG87CiAgfQogIC5tb2RhbCBoM3tmb250LWZhbWlseTonU3BhY2UgR3JvdGVzaycsc2Fucy1zZXJpZjsgZm9udC1zaXplOjE5cHg7IG1hcmdpbjowIDAgNHB4O30KICAubW9kYWwgLnN1Yntmb250LXNpemU6MTIuNXB4OyBjb2xvcjp2YXIoLS1tdXRlZCk7IG1hcmdpbjowIDAgMThweDt9CiAgLm1vZGFsIGxhYmVse2Rpc3BsYXk6YmxvY2s7',
+  'IGZvbnQtc2l6ZToxMnB4OyBjb2xvcjp2YXIoLS1tdXRlZCk7IG1hcmdpbjoxMnB4IDAgNnB4OyBmb250LXdlaWdodDo1MDA7fQogIC5tb2RhbCBpbnB1dHsKICAgIHdpZHRoOjEwMCU7IGJhY2tncm91bmQ6dmFyKC0tcGFuZWwtMik7IGJvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7IGNvbG9yOnZhcigtLXRleHQpOwogICAgcGFkZGluZzoxMXB4IDEzcHg7IGJvcmRlci1yYWRpdXM6MTBweDsgZm9udC1mYW1pbHk6J0ludGVyJyxzYW5zLXNlcmlmOyBmb250LXNpemU6MTMuNXB4OwogICAgb3V0bGluZTpub25lOwogIH0KICAu',
+  'bW9kYWwgaW5wdXQ6Zm9jdXN7Ym9yZGVyLWNvbG9yOnZhcigtLWJyYXNzLXNvZnQpOyBib3gtc2hhZG93OjAgMCAwIDNweCAjQzk5QTJFMWY7fQogIC5tb2RhbC1hY3Rpb25ze2Rpc3BsYXk6ZmxleDsgZ2FwOjEwcHg7IG1hcmdpbi10b3A6MjBweDt9CiAgLm1vZGFsLWFjdGlvbnMgLmJ0bntmbGV4OjE7IHRleHQtYWxpZ246Y2VudGVyO30KICAuYXV0aC10YWJze2Rpc3BsYXk6ZmxleDsgZ2FwOjZweDsgYmFja2dyb3VuZDp2YXIoLS1wYW5lbC0yKTsgYm9yZGVyLXJhZGl1czoxMHB4OyBwYWRkaW5nOjRweDsgbWFyZ2luLWJvdHRv',
+  'bTo2cHg7fQogIC5hdXRoLXRhYnMgYnV0dG9uewogICAgZmxleDoxOyBwYWRkaW5nOjhweDsgYm9yZGVyOm5vbmU7IGJhY2tncm91bmQ6bm9uZTsgYm9yZGVyLXJhZGl1czo3cHg7IGN1cnNvcjpwb2ludGVyOwogICAgZm9udC1zaXplOjEyLjVweDsgZm9udC13ZWlnaHQ6NjAwOyBjb2xvcjp2YXIoLS1tdXRlZCk7IGZvbnQtZmFtaWx5OidJbnRlcicsc2Fucy1zZXJpZjsKICB9CiAgLmF1dGgtdGFicyBidXR0b24uYWN0aXZle2JhY2tncm91bmQ6dmFyKC0tcGFuZWwpOyBjb2xvcjp2YXIoLS10ZXh0KTsgYm94LXNoYWRvdzp2YXIo',
+  'LS1zaGFkb3cpO30KICAubW9kYWwtZXJyb3J7CiAgICBkaXNwbGF5Om5vbmU7IGJhY2tncm91bmQ6dmFyKC0tZGFuZ2VyLXRpbnQpOyBjb2xvcjp2YXIoLS1kYW5nZXIpOyBib3JkZXI6MXB4IHNvbGlkICNDMjNCNEIzMDsKICAgIGZvbnQtc2l6ZToxMnB4OyBwYWRkaW5nOjlweCAxMXB4OyBib3JkZXItcmFkaXVzOjhweDsgbWFyZ2luLXRvcDoxMnB4OyBmb250LXdlaWdodDo1MDA7CiAgfQogIC5tb2RhbC1lcnJvci5zaG93e2Rpc3BsYXk6YmxvY2s7fQogIC5tb2RhbC1ub3Rle2ZvbnQtc2l6ZToxMS41cHg7IGNvbG9yOnZhcigt',
+  'LW11dGVkKTsgbWFyZ2luLXRvcDoxNHB4OyBsaW5lLWhlaWdodDoxLjY7fQoKICAuY2hlY2tvdXQtc3VtbWFyeXsKICAgIGJhY2tncm91bmQ6dmFyKC0tcGFuZWwtMik7IGJvcmRlcjoxcHggc29saWQgdmFyKC0tbGluZSk7IGJvcmRlci1yYWRpdXM6MTJweDsgcGFkZGluZzoxNHB4IDE2cHg7IG1hcmdpbi10b3A6NnB4OwogIH0KICAuY2hlY2tvdXQtc3VtbWFyeSAucm93e2Rpc3BsYXk6ZmxleDsganVzdGlmeS1jb250ZW50OnNwYWNlLWJldHdlZW47IGZvbnQtc2l6ZToxM3B4OyBtYXJnaW4tYm90dG9tOjZweDt9CiAgLmNoZWNr',
+  'b3V0LXN1bW1hcnkgLnJvdzpsYXN0LWNoaWxke21hcmdpbi1ib3R0b206MDsgcGFkZGluZy10b3A6OHB4OyBib3JkZXItdG9wOjFweCBkYXNoZWQgdmFyKC0tbGluZSk7IGZvbnQtd2VpZ2h0OjcwMDt9CiAgLmRpc2NvdW50LWFwcGxpZWR7Y29sb3I6dmFyKC0tb2spOyBmb250LXdlaWdodDo2MDA7fQoKICAucmVzdWx0LWtleS1ib3h7CiAgICBiYWNrZ3JvdW5kOnZhcigtLWJyYXNzLXRpbnQpOyBib3JkZXI6MXB4IHNvbGlkICNDOTlBMkU0MDsgYm9yZGVyLXJhZGl1czoxMnB4OwogICAgcGFkZGluZzoxNnB4OyB0ZXh0LWFsaWdu',
+  'OmNlbnRlcjsgbWFyZ2luLXRvcDo4cHg7CiAgfQogIC5yZXN1bHQta2V5LWJveCBjb2RlewogICAgZm9udC1mYW1pbHk6J0pldEJyYWlucyBNb25vJyxtb25vc3BhY2U7IGZvbnQtc2l6ZToxNHB4OyBmb250LXdlaWdodDo3MDA7IGNvbG9yOnZhcigtLWJyYXNzKTsKICAgIHdvcmQtYnJlYWs6YnJlYWstYWxsOyBkaXNwbGF5OmJsb2NrOyBtYXJnaW4tYm90dG9tOjEwcHg7IGxpbmUtaGVpZ2h0OjEuNTsKICB9CiAgLnRvYXN0ewogICAgcG9zaXRpb246Zml4ZWQ7IGJvdHRvbToyNHB4OyBsZWZ0OjUwJTsgdHJhbnNmb3JtOnRyYW5z',
+  'bGF0ZVgoLTUwJSkgdHJhbnNsYXRlWSgyMHB4KTsKICAgIGJhY2tncm91bmQ6dmFyKC0tdGV4dCk7IGNvbG9yOiNmZmY7IHBhZGRpbmc6MTJweCAyMHB4OyBib3JkZXItcmFkaXVzOjEwcHg7IGZvbnQtc2l6ZToxM3B4OwogICAgb3BhY2l0eTowOyBwb2ludGVyLWV2ZW50czpub25lOyB0cmFuc2l0aW9uOmFsbCAuMjVzOyB6LWluZGV4OjIwMDsgbWF4LXdpZHRoOjkwdnc7IHRleHQtYWxpZ246Y2VudGVyOwogIH0KICAudG9hc3Quc2hvd3tvcGFjaXR5OjE7IHRyYW5zZm9ybTp0cmFuc2xhdGVYKC01MCUpIHRyYW5zbGF0ZVkoMCk7',
+  'fQo8L3N0eWxlPgo8L2hlYWQ+Cjxib2R5PgoKPGhlYWRlciBjbGFzcz0idG9wIj4KICA8ZGl2IGNsYXNzPSJ0b3Atcm93Ij4KICAgIDxkaXYgY2xhc3M9ImJyYW5kIj4KICAgICAgPGRpdiBjbGFzcz0ibWFyayI+CiAgICAgICAgPHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiPjxyZWN0IHg9IjMiIHk9IjExIiB3aWR0aD0iMTgiIGhlaWdodD0iMTAiIHJ4PSIyIi8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxNiIgcj0iMS42Ii8+PHBhdGggZD0iTTcg',
+  'MTFWN2E1IDUgMCAwIDEgMTAgMHY0Ii8+PC9zdmc+CiAgICAgIDwvZGl2PgogICAgICA8ZGl2PgogICAgICAgIDxoMT5LZXlWYXVsdCBTdG9yZTwvaDE+CiAgICAgICAgPGRpdiBjbGFzcz0idGFnIj5NdWEga2V5IHRy4buxYyB0dXnhur9uPC9kaXY+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJ0b3AtYWN0aW9ucyI+CiAgICAgIDxhIGhyZWY9Ii9hZG1pbiIgY2xhc3M9ImFkbWluLWxpbmsiPlRyYW5nIHF14bqjbiB0cuG7izwvYT4KICAgICAgPGRpdiBpZD0iZ3Vlc3RBY3Rpb25zIj4KICAgICAgICA8',
+  'YnV0dG9uIGNsYXNzPSJidG4iIGlkPSJidG5PcGVuQXV0aCI+xJDEg25nIG5o4bqtcCAvIMSQxINuZyBrw708L2J1dHRvbj4KICAgICAgPC9kaXY+CiAgICAgIDxkaXYgaWQ9ImFjY291bnRDaGlwIiBjbGFzcz0iYWNjb3VudC1jaGlwIiBzdHlsZT0iZGlzcGxheTpub25lOyI+CiAgICAgICAgPHNwYW4gaWQ9ImFjY291bnROYW1lIj48L3NwYW4+CiAgICAgICAgPGJ1dHRvbiBpZD0iYnRuTG9nb3V0Q3VzdG9tZXIiPsSQxINuZyB4deG6pXQ8L2J1dHRvbj4KICAgICAgPC9kaXY+CiAgICA8L2Rpdj4KICA8L2Rpdj4KPC9oZWFkZXI+',
+  'Cgo8bWFpbj4KICA8ZGl2IGNsYXNzPSJoZXJvIj4KICAgIDxoMj5LZXkgY2jDrW5oIGjDo25nIOKAlCBnaWFvIG5nYXkgc2F1IGtoaSB0aGFuaCB0b8OhbjwvaDI+CiAgICA8cD5DaOG7jW4gc+G6o24gcGjhuqltIGLDqm4gZMaw4bubaSwgxJHEg25nIG5o4bqtcCBob+G6t2MgdOG6oW8gdMOgaSBraG/huqNuLCDDoXAgbcOjIGdp4bqjbSBnacOhIChu4bq/dSBjw7MpIHbDoCBuaOG6rW4ga2V5IG5nYXkgbOG6rXAgdOG7qWMuPC9wPgogICAgPGRpdiBjbGFzcz0iYmFkZ2VzIj4KICAgICAgPHNwYW4gY2xhc3M9ImJhZGdlIj7wn5SS',
+  'IELhuqNvIG3huq10IMK3IGFuIHRvw6BuPC9zcGFuPgogICAgICA8c3BhbiBjbGFzcz0iYmFkZ2UiPuKaoSBHaWFvIGtleSB04buxIMSR4buZbmc8L3NwYW4+CiAgICAgIDxzcGFuIGNsYXNzPSJiYWRnZSI+8J+On++4jyBI4buXIHRy4bujIG3DoyBnaeG6o20gZ2nDoTwvc3Bhbj4KICAgIDwvZGl2PgogIDwvZGl2PgoKICA8ZGl2IGNsYXNzPSJncmlkIiBpZD0icHJvZHVjdEdyaWQiPjwvZGl2PgogIDxkaXYgY2xhc3M9ImVtcHR5LXN0YXRlIiBpZD0iZW1wdHlTdGF0ZSIgc3R5bGU9ImRpc3BsYXk6bm9uZTsiPgogICAgPGRpdiBj',
+  'bGFzcz0iYmlnIj5IaeG7h24gY2jGsGEgY8OzIHPhuqNuIHBo4bqpbSBuw6BvPC9kaXY+CiAgICBRdeG6o24gdHLhu4sgdmnDqm4gY2jGsGEgdGjDqm0gc+G6o24gcGjhuqltIG7DoG8gbMOqbiB0cmFuZyBiw6FuIGtleS4gVnVpIGzDsm5nIHF1YXkgbOG6oWkgc2F1LgogIDwvZGl2Pgo8L21haW4+Cgo8Zm9vdGVyPktleVZhdWx0IFN0b3JlIOKAlCBI4buHIHRo4buRbmcgYuG6o28gbeG6rXQgwrcgYW4gdG/DoG4gwrcgY2jhuqV0IGzGsOG7o25nLjwvZm9vdGVyPgoKPCEtLSA9PT09PT09PT09PT0gTU9EQUw6IMSQxIJORyBOSOG6',
+  'rFAgLyDEkMSCTkcgS8OdID09PT09PT09PT09PSAtLT4KPGRpdiBjbGFzcz0ibW9kYWwtYmciIGlkPSJhdXRoTW9kYWxCZyI+CiAgPGRpdiBjbGFzcz0ibW9kYWwiPgogICAgPGgzPlTDoGkga2hv4bqjbiBj4bunYSBi4bqhbjwvaDM+CiAgICA8cCBjbGFzcz0ic3ViIj5D4bqnbiDEkcSDbmcgbmjhuq1wIGhv4bq3YyB04bqhbyB0w6BpIGtob+G6o24gxJHhu4MgbXVhIGtleS48L3A+CiAgICA8ZGl2IGNsYXNzPSJhdXRoLXRhYnMiPgogICAgICA8YnV0dG9uIGlkPSJ0YWJMb2dpbiIgY2xhc3M9ImFjdGl2ZSI+xJDEg25nIG5o4bqt',
+  'cDwvYnV0dG9uPgogICAgICA8YnV0dG9uIGlkPSJ0YWJSZWdpc3RlciI+xJDEg25nIGvDvTwvYnV0dG9uPgogICAgPC9kaXY+CgogICAgPGRpdiBpZD0iYXV0aEZvcm1Mb2dpbiI+CiAgICAgIDxsYWJlbD5Uw6puIMSRxINuZyBuaOG6rXA8L2xhYmVsPgogICAgICA8aW5wdXQgdHlwZT0idGV4dCIgaWQ9ImxvZ2luVXNlcm5hbWUiIHBsYWNlaG9sZGVyPSJOaOG6rXAgdMOqbiDEkcSDbmcgbmjhuq1wIj4KICAgICAgPGxhYmVsPk3huq10IGto4bqpdTwvbGFiZWw+CiAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgaWQ9ImxvZ2lu',
+  'UGFzc3dvcmQiIHBsYWNlaG9sZGVyPSJOaOG6rXAgbeG6rXQga2jhuql1Ij4KICAgIDwvZGl2PgoKICAgIDxkaXYgaWQ9ImF1dGhGb3JtUmVnaXN0ZXIiIHN0eWxlPSJkaXNwbGF5Om5vbmU7Ij4KICAgICAgPGxhYmVsPlTDqm4gxJHEg25nIG5o4bqtcDwvbGFiZWw+CiAgICAgIDxpbnB1dCB0eXBlPSJ0ZXh0IiBpZD0icmVnVXNlcm5hbWUiIHBsYWNlaG9sZGVyPSJDaOG7jW4gdMOqbiDEkcSDbmcgbmjhuq1wIj4KICAgICAgPGxhYmVsPk3huq10IGto4bqpdTwvbGFiZWw+CiAgICAgIDxpbnB1dCB0eXBlPSJwYXNzd29yZCIgaWQ9',
+  'InJlZ1Bhc3N3b3JkIiBwbGFjZWhvbGRlcj0iVOG7kWkgdGhp4buDdSA0IGvDvSB04buxIj4KICAgICAgPGxhYmVsPk5o4bqtcCBs4bqhaSBt4bqtdCBraOG6qXU8L2xhYmVsPgogICAgICA8aW5wdXQgdHlwZT0icGFzc3dvcmQiIGlkPSJyZWdQYXNzd29yZENvbmZpcm0iIHBsYWNlaG9sZGVyPSJOaOG6rXAgbOG6oWkgbeG6rXQga2jhuql1Ij4KICAgIDwvZGl2PgoKICAgIDxkaXYgY2xhc3M9Im1vZGFsLWVycm9yIiBpZD0iYXV0aEVycm9yIj48L2Rpdj4KCiAgICA8ZGl2IGNsYXNzPSJtb2RhbC1hY3Rpb25zIj4KICAgICAgPGJ1',
+  'dHRvbiBjbGFzcz0iYnRuIGJ0bi1naG9zdCIgaWQ9ImJ0bkNsb3NlQXV0aCI+xJDDs25nPC9idXR0b24+CiAgICAgIDxidXR0b24gY2xhc3M9ImJ0biIgaWQ9ImJ0blN1Ym1pdEF1dGgiPsSQxINuZyBuaOG6rXA8L2J1dHRvbj4KICAgIDwvZGl2PgogIDwvZGl2Pgo8L2Rpdj4KCjwhLS0gPT09PT09PT09PT09IE1PREFMOiBUSEFOSCBUT8OBTiA9PT09PT09PT09PT0gLS0+CjxkaXYgY2xhc3M9Im1vZGFsLWJnIiBpZD0iY2hlY2tvdXRNb2RhbEJnIj4KICA8ZGl2IGNsYXNzPSJtb2RhbCI+CiAgICA8aDM+WMOhYyBuaOG6rW4gbXVh',
+  'IGtleTwvaDM+CiAgICA8cCBjbGFzcz0ic3ViIiBpZD0iY2hlY2tvdXRQcm9kdWN0TmFtZSI+4oCUPC9wPgoKICAgIDxsYWJlbD5Nw6MgZ2nhuqNtIGdpw6EgKG7hur91IGPDsyk8L2xhYmVsPgogICAgPGRpdiBzdHlsZT0iZGlzcGxheTpmbGV4OyBnYXA6OHB4OyI+CiAgICAgIDxpbnB1dCB0eXBlPSJ0ZXh0IiBpZD0iY2hlY2tvdXREaXNjb3VudENvZGUiIHBsYWNlaG9sZGVyPSJWRDogU0FMRTIwIiBzdHlsZT0iZmxleDoxOyB0ZXh0LXRyYW5zZm9ybTp1cHBlcmNhc2U7Ij4KICAgICAgPGJ1dHRvbiBjbGFzcz0iYnRuIGJ0bi1n',
+  'aG9zdCIgaWQ9ImJ0bkFwcGx5RGlzY291bnQiIHN0eWxlPSJ3aGl0ZS1zcGFjZTpub3dyYXA7Ij7DgXAgZOG7pW5nPC9idXR0b24+CiAgICA8L2Rpdj4KCiAgICA8ZGl2IGNsYXNzPSJjaGVja291dC1zdW1tYXJ5Ij4KICAgICAgPGRpdiBjbGFzcz0icm93Ij48c3Bhbj5HacOhIGfhu5FjPC9zcGFuPjxzcGFuIGlkPSJjaGVja291dE9yaWdpbmFsUHJpY2UiPjDigqs8L3NwYW4+PC9kaXY+CiAgICAgIDxkaXYgY2xhc3M9InJvdyIgaWQ9ImNoZWNrb3V0RGlzY291bnRSb3ciIHN0eWxlPSJkaXNwbGF5Om5vbmU7Ij48c3Bhbj5HaeG6',
+  'o20gZ2nDoTwvc3Bhbj48c3BhbiBjbGFzcz0iZGlzY291bnQtYXBwbGllZCIgaWQ9ImNoZWNrb3V0RGlzY291bnRBbW91bnQiPjDigqs8L3NwYW4+PC9kaXY+CiAgICAgIDxkaXYgY2xhc3M9InJvdyI+PHNwYW4+VGjDoG5oIHRp4buBbjwvc3Bhbj48c3BhbiBpZD0iY2hlY2tvdXRGaW5hbFByaWNlIj4w4oKrPC9zcGFuPjwvZGl2PgogICAgPC9kaXY+CgogICAgPGRpdiBjbGFzcz0ibW9kYWwtZXJyb3IiIGlkPSJjaGVja291dEVycm9yIj48L2Rpdj4KICAgIDxwIGNsYXNzPSJtb2RhbC1ub3RlIj5TYXUga2hpIHjDoWMgbmjhuq1u',
+  'LCBo4buHIHRo4buRbmcgc+G6vSBnaWFvIG5nYXkgMSBrZXkgY8OybiBow6BuZyBjaG8gdMOgaSBraG/huqNuIGPhu6dhIGLhuqFuLjwvcD4KCiAgICA8ZGl2IGNsYXNzPSJtb2RhbC1hY3Rpb25zIj4KICAgICAgPGJ1dHRvbiBjbGFzcz0iYnRuIGJ0bi1naG9zdCIgaWQ9ImJ0bkNsb3NlQ2hlY2tvdXQiPkh14bu3PC9idXR0b24+CiAgICAgIDxidXR0b24gY2xhc3M9ImJ0biIgaWQ9ImJ0bkNvbmZpcm1DaGVja291dCI+WMOhYyBuaOG6rW4gbXVhPC9idXR0b24+CiAgICA8L2Rpdj4KICA8L2Rpdj4KPC9kaXY+Cgo8IS0tID09PT09',
+  'PT09PT09PSBNT0RBTDogS+G6vlQgUVXhuqIgTVVBIEtFWSA9PT09PT09PT09PT0gLS0+CjxkaXYgY2xhc3M9Im1vZGFsLWJnIiBpZD0icmVzdWx0TW9kYWxCZyI+CiAgPGRpdiBjbGFzcz0ibW9kYWwiPgogICAgPGgzPvCfjokgTXVhIGtleSB0aMOgbmggY8O0bmchPC9oMz4KICAgIDxwIGNsYXNzPSJzdWIiPktleSBj4bunYSBi4bqhbiDEkcOjIHPhurVuIHPDoG5nLCB2dWkgbMOybmcgbMawdSBs4bqhaSBj4bqpbiB0aOG6rW4uPC9wPgogICAgPGRpdiBjbGFzcz0icmVzdWx0LWtleS1ib3giPgogICAgICA8Y29kZSBpZD0icmVz',
+  'dWx0S2V5VmFsdWUiPuKAlDwvY29kZT4KICAgICAgPGJ1dHRvbiBjbGFzcz0iYnRuIiBpZD0iYnRuQ29weVJlc3VsdEtleSIgc3R5bGU9IndpZHRoOjEwMCU7Ij5TYW8gY2jDqXAga2V5PC9idXR0b24+CiAgICA8L2Rpdj4KICAgIDxwIGNsYXNzPSJtb2RhbC1ub3RlIiBpZD0icmVzdWx0S2V5TWV0YSI+PC9wPgogICAgPGRpdiBjbGFzcz0ibW9kYWwtYWN0aW9ucyI+CiAgICAgIDxidXR0b24gY2xhc3M9ImJ0biBidG4tZ2hvc3QiIGlkPSJidG5DbG9zZVJlc3VsdCIgc3R5bGU9IndpZHRoOjEwMCU7Ij7EkMOzbmc8L2J1dHRvbj4K',
+  'ICAgIDwvZGl2PgogIDwvZGl2Pgo8L2Rpdj4KCjxkaXYgY2xhc3M9InRvYXN0IiBpZD0idG9hc3QiPjwvZGl2PgoKPHNjcmlwdD4KY29uc3QgQVBJX0JBU0UgPSAnJzsgLy8gY8O5bmcgZG9tYWluIHbhu5tpIHRyYW5nIG7DoHkKCi8qIC0tLS0tLS0tLS0gSGVscGVyIC0tLS0tLS0tLS0gKi8KZnVuY3Rpb24gJChpZCl7IHJldHVybiBkb2N1bWVudC5nZXRFbGVtZW50QnlJZChpZCk7IH0KZnVuY3Rpb24gZm10TW9uZXkodil7CiAgY29uc3QgbiA9IHBhcnNlRmxvYXQoU3RyaW5nKHYpLnJlcGxhY2UoL1teXGQuXS9nLCcnKSk7CiAg',
+  'aWYoIW4gJiYgbiE9PTApIHJldHVybiAnMOKCqyc7CiAgcmV0dXJuIG4udG9Mb2NhbGVTdHJpbmcoJ3ZpLVZOJykrJ+KCqyc7Cn0KZnVuY3Rpb24gc2hvd1RvYXN0KG1zZyl7CiAgY29uc3QgdCA9ICQoJ3RvYXN0Jyk7CiAgdC50ZXh0Q29udGVudCA9IG1zZzsKICB0LmNsYXNzTGlzdC5hZGQoJ3Nob3cnKTsKICBjbGVhclRpbWVvdXQoc2hvd1RvYXN0Ll90aW1lcik7CiAgc2hvd1RvYXN0Ll90aW1lciA9IHNldFRpbWVvdXQoKCk9PiB0LmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cnKSwgMzIwMCk7Cn0KCi8qIC0tLS0tLS0tLS0gVHLh',
+  'uqFuZyB0aMOhaSDEkcSDbmcgbmjhuq1wIGtow6FjaCBow6BuZyAtLS0tLS0tLS0tICovCmxldCBjdXN0b21lclRva2VuID0gbG9jYWxTdG9yYWdlLmdldEl0ZW0oJ2t2X3N0b3JlX3Rva2VuJykgfHwgJyc7CmxldCBjdXN0b21lck5hbWUgPSBsb2NhbFN0b3JhZ2UuZ2V0SXRlbSgna3Zfc3RvcmVfdXNlcm5hbWUnKSB8fCAnJzsKCmZ1bmN0aW9uIHVwZGF0ZUFjY291bnRVSSgpewogIGlmKGN1c3RvbWVyVG9rZW4gJiYgY3VzdG9tZXJOYW1lKXsKICAgICQoJ2d1ZXN0QWN0aW9ucycpLnN0eWxlLmRpc3BsYXkgPSAnbm9uZSc7CiAg',
+  'ICAkKCdhY2NvdW50Q2hpcCcpLnN0eWxlLmRpc3BsYXkgPSAnZmxleCc7CiAgICAkKCdhY2NvdW50TmFtZScpLnRleHRDb250ZW50ID0gY3VzdG9tZXJOYW1lOwogIH0gZWxzZSB7CiAgICAkKCdndWVzdEFjdGlvbnMnKS5zdHlsZS5kaXNwbGF5ID0gJyc7CiAgICAkKCdhY2NvdW50Q2hpcCcpLnN0eWxlLmRpc3BsYXkgPSAnbm9uZSc7CiAgfQp9CnVwZGF0ZUFjY291bnRVSSgpOwoKJCgnYnRuTG9nb3V0Q3VzdG9tZXInKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpPT57CiAgY3VzdG9tZXJUb2tlbiA9ICcnOyBjdXN0b21l',
+  'ck5hbWUgPSAnJzsKICBsb2NhbFN0b3JhZ2UucmVtb3ZlSXRlbSgna3Zfc3RvcmVfdG9rZW4nKTsKICBsb2NhbFN0b3JhZ2UucmVtb3ZlSXRlbSgna3Zfc3RvcmVfdXNlcm5hbWUnKTsKICB1cGRhdGVBY2NvdW50VUkoKTsKICBzaG93VG9hc3QoJ8SQw6MgxJHEg25nIHh14bqldCcpOwp9KTsKCi8qIC0tLS0tLS0tLS0gTW9kYWwgxJDEg25nIG5o4bqtcCAvIMSQxINuZyBrw70gLS0tLS0tLS0tLSAqLwpsZXQgcGVuZGluZ0J1eVByb2R1Y3RJZCA9IG51bGw7IC8vIHPhuqNuIHBo4bqpbSBraMOhY2ggYuG6pW0gIk11YSIgdHLGsOG7',
+  'm2Mga2hpIMSRxINuZyBuaOG6rXAgeG9uZwoKZnVuY3Rpb24gb3BlbkF1dGhNb2RhbCgpewogICQoJ2F1dGhFcnJvcicpLmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cnKTsKICAkKCdhdXRoTW9kYWxCZycpLmNsYXNzTGlzdC5hZGQoJ3Nob3cnKTsKfQpmdW5jdGlvbiBjbG9zZUF1dGhNb2RhbCgpeyAkKCdhdXRoTW9kYWxCZycpLmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cnKTsgfQoKJCgnYnRuT3BlbkF1dGgnKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpPT4gb3BlbkF1dGhNb2RhbCgpKTsKJCgnYnRuQ2xvc2VBdXRoJykuYWRk',
+  'RXZlbnRMaXN0ZW5lcignY2xpY2snLCBjbG9zZUF1dGhNb2RhbCk7CgokKCd0YWJMb2dpbicpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgKCk9PnsKICAkKCd0YWJMb2dpbicpLmNsYXNzTGlzdC5hZGQoJ2FjdGl2ZScpOyAkKCd0YWJSZWdpc3RlcicpLmNsYXNzTGlzdC5yZW1vdmUoJ2FjdGl2ZScpOwogICQoJ2F1dGhGb3JtTG9naW4nKS5zdHlsZS5kaXNwbGF5ID0gJyc7ICQoJ2F1dGhGb3JtUmVnaXN0ZXInKS5zdHlsZS5kaXNwbGF5ID0gJ25vbmUnOwogICQoJ2J0blN1Ym1pdEF1dGgnKS50ZXh0Q29udGVudCA9ICfEkMSD',
+  'bmcgbmjhuq1wJzsKICAkKCdhdXRoRXJyb3InKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7Cn0pOwokKCd0YWJSZWdpc3RlcicpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgKCk9PnsKICAkKCd0YWJSZWdpc3RlcicpLmNsYXNzTGlzdC5hZGQoJ2FjdGl2ZScpOyAkKCd0YWJMb2dpbicpLmNsYXNzTGlzdC5yZW1vdmUoJ2FjdGl2ZScpOwogICQoJ2F1dGhGb3JtUmVnaXN0ZXInKS5zdHlsZS5kaXNwbGF5ID0gJyc7ICQoJ2F1dGhGb3JtTG9naW4nKS5zdHlsZS5kaXNwbGF5ID0gJ25vbmUnOwogICQoJ2J0blN1Ym1pdEF1dGgn',
+  'KS50ZXh0Q29udGVudCA9ICfEkMSDbmcga8O9JzsKICAkKCdhdXRoRXJyb3InKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7Cn0pOwoKJCgnYnRuU3VibWl0QXV0aCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgYXN5bmMgKCk9PnsKICBjb25zdCBpc1JlZ2lzdGVyID0gJCgndGFiUmVnaXN0ZXInKS5jbGFzc0xpc3QuY29udGFpbnMoJ2FjdGl2ZScpOwogIGNvbnN0IGVyckJveCA9ICQoJ2F1dGhFcnJvcicpOwogIGVyckJveC5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7CgogIHRyeXsKICAgIGlmKGlzUmVnaXN0ZXIpewog',
+  'ICAgICBjb25zdCB1c2VybmFtZSA9ICQoJ3JlZ1VzZXJuYW1lJykudmFsdWUudHJpbSgpOwogICAgICBjb25zdCBwYXNzd29yZCA9ICQoJ3JlZ1Bhc3N3b3JkJykudmFsdWU7CiAgICAgIGNvbnN0IGNvbmZpcm1QYXNzID0gJCgncmVnUGFzc3dvcmRDb25maXJtJykudmFsdWU7CiAgICAgIGlmKCF1c2VybmFtZSB8fCAhcGFzc3dvcmQpeyB0aHJvdyBuZXcgRXJyb3IoJ1Z1aSBsw7JuZyBuaOG6rXAgxJHhuqd5IMSR4bunIHTDqm4gxJHEg25nIG5o4bqtcCB2w6AgbeG6rXQga2jhuql1Jyk7IH0KICAgICAgaWYocGFzc3dvcmQubGVu',
+  'Z3RoIDwgNCl7IHRocm93IG5ldyBFcnJvcignTeG6rXQga2jhuql1IGPhuqduIHThu5FpIHRoaeG7g3UgNCBrw70gdOG7sScpOyB9CiAgICAgIGlmKHBhc3N3b3JkICE9PSBjb25maXJtUGFzcyl7IHRocm93IG5ldyBFcnJvcignTeG6rXQga2jhuql1IG5o4bqtcCBs4bqhaSBraMO0bmcga2jhu5twJyk7IH0KCiAgICAgIGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKEFQSV9CQVNFICsgJy9hcGkvYXV0aC9yZWdpc3RlcicsIHsKICAgICAgICBtZXRob2Q6J1BPU1QnLCBoZWFkZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24v',
+  'anNvbid9LAogICAgICAgIGJvZHk6IEpTT04uc3RyaW5naWZ5KHsgdXNlcm5hbWUsIHBhc3N3b3JkIH0pCiAgICAgIH0pOwogICAgICBjb25zdCBkYXRhID0gYXdhaXQgcmVzLmpzb24oKTsKICAgICAgaWYoIXJlcy5vayB8fCAhZGF0YS5vayl7CiAgICAgICAgaWYoZGF0YS5lcnJvciA9PT0gJ3VzZXJuYW1lX3Rha2VuJykgdGhyb3cgbmV3IEVycm9yKCdUw6puIMSRxINuZyBuaOG6rXAgxJHDoyB04buTbiB04bqhaSwgdnVpIGzDsm5nIGNo4buNbiB0w6puIGtow6FjJyk7CiAgICAgICAgdGhyb3cgbmV3IEVycm9yKCfEkMSDbmcg',
+  'a8O9IHRo4bqldCBi4bqhaSwgdnVpIGzDsm5nIHRo4butIGzhuqFpJyk7CiAgICAgIH0KICAgICAgY3VzdG9tZXJUb2tlbiA9IGRhdGEudG9rZW47IGN1c3RvbWVyTmFtZSA9IGRhdGEudXNlcm5hbWU7CiAgICB9IGVsc2UgewogICAgICBjb25zdCB1c2VybmFtZSA9ICQoJ2xvZ2luVXNlcm5hbWUnKS52YWx1ZS50cmltKCk7CiAgICAgIGNvbnN0IHBhc3N3b3JkID0gJCgnbG9naW5QYXNzd29yZCcpLnZhbHVlOwogICAgICBpZighdXNlcm5hbWUgfHwgIXBhc3N3b3JkKXsgdGhyb3cgbmV3IEVycm9yKCdWdWkgbMOybmcgbmjhuq1w',
+  'IHTDqm4gxJHEg25nIG5o4bqtcCB2w6AgbeG6rXQga2jhuql1Jyk7IH0KCiAgICAgIGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKEFQSV9CQVNFICsgJy9hcGkvYXV0aC9sb2dpbicsIHsKICAgICAgICBtZXRob2Q6J1BPU1QnLCBoZWFkZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24vanNvbid9LAogICAgICAgIGJvZHk6IEpTT04uc3RyaW5naWZ5KHsgdXNlcm5hbWUsIHBhc3N3b3JkIH0pCiAgICAgIH0pOwogICAgICBjb25zdCBkYXRhID0gYXdhaXQgcmVzLmpzb24oKTsKICAgICAgaWYoIXJlcy5vayB8fCAhZGF0YS5v',
+  'ayl7IHRocm93IG5ldyBFcnJvcignU2FpIHTDqm4gxJHEg25nIG5o4bqtcCBob+G6t2MgbeG6rXQga2jhuql1Jyk7IH0KICAgICAgY3VzdG9tZXJUb2tlbiA9IGRhdGEudG9rZW47IGN1c3RvbWVyTmFtZSA9IGRhdGEudXNlcm5hbWU7CiAgICB9CgogICAgbG9jYWxTdG9yYWdlLnNldEl0ZW0oJ2t2X3N0b3JlX3Rva2VuJywgY3VzdG9tZXJUb2tlbik7CiAgICBsb2NhbFN0b3JhZ2Uuc2V0SXRlbSgna3Zfc3RvcmVfdXNlcm5hbWUnLCBjdXN0b21lck5hbWUpOwogICAgdXBkYXRlQWNjb3VudFVJKCk7CiAgICBjbG9zZUF1dGhNb2Rh',
+  'bCgpOwogICAgc2hvd1RvYXN0KCdYaW4gY2jDoG8sICcgKyBjdXN0b21lck5hbWUgKyAnIScpOwoKICAgIGlmKHBlbmRpbmdCdXlQcm9kdWN0SWQpewogICAgICBjb25zdCBwaWQgPSBwZW5kaW5nQnV5UHJvZHVjdElkOwogICAgICBwZW5kaW5nQnV5UHJvZHVjdElkID0gbnVsbDsKICAgICAgb3BlbkNoZWNrb3V0TW9kYWwocGlkKTsKICAgIH0KICB9Y2F0Y2goZSl7CiAgICBlcnJCb3gudGV4dENvbnRlbnQgPSBlLm1lc3NhZ2UgfHwgJ0PDsyBs4buXaSB44bqjeSByYSwgdnVpIGzDsm5nIHRo4butIGzhuqFpJzsKICAgIGVyckJv',
+  'eC5jbGFzc0xpc3QuYWRkKCdzaG93Jyk7CiAgfQp9KTsKCi8qIC0tLS0tLS0tLS0gRGFuaCBzw6FjaCBz4bqjbiBwaOG6qW0gLS0tLS0tLS0tLSAqLwpsZXQgcHJvZHVjdHMgPSBbXTsKCmFzeW5jIGZ1bmN0aW9uIGxvYWRQcm9kdWN0cygpewogIHRyeXsKICAgIGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKEFQSV9CQVNFICsgJy9hcGkvcHJvZHVjdHMnLCB7IGNhY2hlOiduby1zdG9yZScgfSk7CiAgICBwcm9kdWN0cyA9IGF3YWl0IHJlcy5qc29uKCk7CiAgfWNhdGNoKGUpewogICAgY29uc29sZS53YXJuKCdbS2V5VmF1bHQgU3Rv',
+  'cmVdIEtow7RuZyB04bqjaSDEkcaw4bujYyBkYW5oIHPDoWNoIHPhuqNuIHBo4bqpbScsIGUpOwogICAgcHJvZHVjdHMgPSBbXTsKICB9CiAgcmVuZGVyUHJvZHVjdHMoKTsKfQoKZnVuY3Rpb24gZm10RHVyYXRpb24ocCl7CiAgaWYocC5kdXJhdGlvblVuaXQ9PT0ndW5saW1pdGVkJyB8fCAhcC5kdXJhdGlvbkFtb3VudCkgcmV0dXJuICdLaMO0bmcgZ2nhu5tpIGjhuqFuJzsKICBjb25zdCB1bml0TGFiZWwgPSBwLmR1cmF0aW9uVW5pdD09PSdob3VyJyA/ICdnaeG7nScgOiBwLmR1cmF0aW9uVW5pdD09PSdtb250aCcgPyAndGjD',
+  'oW5nJyA6ICduZ8OgeSc7CiAgcmV0dXJuIHAuZHVyYXRpb25BbW91bnQgKyAnICcgKyB1bml0TGFiZWw7Cn0KCmZ1bmN0aW9uIHJlbmRlclByb2R1Y3RzKCl7CiAgY29uc3QgZ3JpZCA9ICQoJ3Byb2R1Y3RHcmlkJyk7CiAgY29uc3QgZW1wdHkgPSAkKCdlbXB0eVN0YXRlJyk7CiAgZ3JpZC5pbm5lckhUTUwgPSAnJzsKICBlbXB0eS5zdHlsZS5kaXNwbGF5ID0gcHJvZHVjdHMubGVuZ3RoID8gJ25vbmUnIDogJ2Jsb2NrJzsKCiAgcHJvZHVjdHMuZm9yRWFjaChwPT57CiAgICBjb25zdCBpblN0b2NrID0gKHAuc3RvY2t8fDApID4g',
+  'MDsKICAgIGNvbnN0IGNhcmQgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdkaXYnKTsKICAgIGNhcmQuY2xhc3NOYW1lID0gJ2NhcmQnOwogICAgY2FyZC5pbm5lckhUTUwgPSBgCiAgICAgIDxkaXYgY2xhc3M9ImxvZ28iPiR7cC5sb2dvID8gYDxpbWcgc3JjPSIke3AubG9nb30iPmAgOiAn8J+Tpid9PC9kaXY+CiAgICAgIDxoMz4ke3AubmFtZX08L2gzPgogICAgICA8ZGl2IGNsYXNzPSJwcmljZSI+JHtmbXRNb25leShwLnByaWNlKX08L2Rpdj4KICAgICAgPGRpdiBjbGFzcz0ibWV0YSI+CiAgICAgICAgPHNwYW4+4o+xIFRo',
+  '4budaSBo4bqhbjogPGI+JHtmbXREdXJhdGlvbihwKX08L2I+PC9zcGFuPgogICAgICAgIDxzcGFuPvCfk7EgVGhp4bq/dCBi4buLOiA8Yj4ke3AubWF4RGV2aWNlc3x8MX08L2I+PC9zcGFuPgogICAgICAgIDxzcGFuIGNsYXNzPSJzdG9jayAke2luU3RvY2sgPyAnaW4nIDogJ291dCd9Ij4ke2luU3RvY2sgPyAn4pyUIEPDsm4gJytwLnN0b2NrKycga2V5JyA6ICfinJYgSOG6v3QgaMOgbmcnfTwvc3Bhbj4KICAgICAgPC9kaXY+CiAgICAgIDxidXR0b24gY2xhc3M9ImJ0biBidXktYnRuIiBkYXRhLWlkPSIke3AuaWR9IiAke2lu',
+  'U3RvY2sgPyAnJyA6ICdkaXNhYmxlZCd9PiR7aW5TdG9jayA/ICdNdWEgbmdheScgOiAnSOG6v3QgaMOgbmcnfTwvYnV0dG9uPgogICAgYDsKICAgIGdyaWQuYXBwZW5kQ2hpbGQoY2FyZCk7CiAgfSk7Cn0KCmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdwcm9kdWN0R3JpZCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgKGUpPT57CiAgY29uc3QgYnRuID0gZS50YXJnZXQuY2xvc2VzdCgnLmJ1eS1idG4nKTsKICBpZighYnRuIHx8IGJ0bi5kaXNhYmxlZCkgcmV0dXJuOwogIGNvbnN0IGlkID0gYnRuLmRhdGFzZXQuaWQ7CiAg',
+  'aWYoIWN1c3RvbWVyVG9rZW4pewogICAgcGVuZGluZ0J1eVByb2R1Y3RJZCA9IGlkOwogICAgb3BlbkF1dGhNb2RhbCgpOwogICAgcmV0dXJuOwogIH0KICBvcGVuQ2hlY2tvdXRNb2RhbChpZCk7Cn0pOwoKLyogLS0tLS0tLS0tLSBNb2RhbCBUaGFuaCB0b8OhbiAtLS0tLS0tLS0tICovCmxldCBjaGVja291dFByb2R1Y3QgPSBudWxsOwpsZXQgYXBwbGllZERpc2NvdW50UGVyY2VudCA9IDA7CgpmdW5jdGlvbiBvcGVuQ2hlY2tvdXRNb2RhbChwcm9kdWN0SWQpewogIGNoZWNrb3V0UHJvZHVjdCA9IHByb2R1Y3RzLmZpbmQocD0+',
+  'cC5pZD09PXByb2R1Y3RJZCk7CiAgaWYoIWNoZWNrb3V0UHJvZHVjdCl7IHNob3dUb2FzdCgnU+G6o24gcGjhuqltIGtow7RuZyBjw7JuIHThu5NuIHThuqFpLCB2dWkgbMOybmcgdOG6o2kgbOG6oWkgdHJhbmcnKTsgcmV0dXJuOyB9CiAgYXBwbGllZERpc2NvdW50UGVyY2VudCA9IDA7CiAgJCgnY2hlY2tvdXRQcm9kdWN0TmFtZScpLnRleHRDb250ZW50ID0gY2hlY2tvdXRQcm9kdWN0Lm5hbWU7CiAgJCgnY2hlY2tvdXREaXNjb3VudENvZGUnKS52YWx1ZSA9ICcnOwogICQoJ2NoZWNrb3V0RGlzY291bnRSb3cnKS5zdHlsZS5k',
+  'aXNwbGF5ID0gJ25vbmUnOwogICQoJ2NoZWNrb3V0RXJyb3InKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7CiAgdXBkYXRlQ2hlY2tvdXRTdW1tYXJ5KCk7CiAgJCgnY2hlY2tvdXRNb2RhbEJnJykuY2xhc3NMaXN0LmFkZCgnc2hvdycpOwp9CmZ1bmN0aW9uIGNsb3NlQ2hlY2tvdXRNb2RhbCgpeyAkKCdjaGVja291dE1vZGFsQmcnKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7IH0KJCgnYnRuQ2xvc2VDaGVja291dCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgY2xvc2VDaGVja291dE1vZGFsKTsKCmZ1bmN0aW9uIHVw',
+  'ZGF0ZUNoZWNrb3V0U3VtbWFyeSgpewogIGNvbnN0IGJhc2UgPSBwYXJzZUZsb2F0KFN0cmluZyhjaGVja291dFByb2R1Y3QucHJpY2UpLnJlcGxhY2UoL1teXGQuXS9nLCcnKSkgfHwgMDsKICBjb25zdCBkaXNjb3VudEFtb3VudCA9IE1hdGgucm91bmQoYmFzZSAqIGFwcGxpZWREaXNjb3VudFBlcmNlbnQgLyAxMDApOwogIGNvbnN0IGZpbmFsID0gYmFzZSAtIGRpc2NvdW50QW1vdW50OwogICQoJ2NoZWNrb3V0T3JpZ2luYWxQcmljZScpLnRleHRDb250ZW50ID0gZm10TW9uZXkoYmFzZSk7CiAgaWYoYXBwbGllZERpc2NvdW50',
+  'UGVyY2VudCA+IDApewogICAgJCgnY2hlY2tvdXREaXNjb3VudFJvdycpLnN0eWxlLmRpc3BsYXkgPSAnZmxleCc7CiAgICAkKCdjaGVja291dERpc2NvdW50QW1vdW50JykudGV4dENvbnRlbnQgPSAnLScgKyBmbXRNb25leShkaXNjb3VudEFtb3VudCkgKyAnICgnICsgYXBwbGllZERpc2NvdW50UGVyY2VudCArICclKSc7CiAgfSBlbHNlIHsKICAgICQoJ2NoZWNrb3V0RGlzY291bnRSb3cnKS5zdHlsZS5kaXNwbGF5ID0gJ25vbmUnOwogIH0KICAkKCdjaGVja291dEZpbmFsUHJpY2UnKS50ZXh0Q29udGVudCA9IGZtdE1vbmV5',
+  'KGZpbmFsKTsKfQoKJCgnYnRuQXBwbHlEaXNjb3VudCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgYXN5bmMgKCk9PnsKICBjb25zdCBjb2RlID0gJCgnY2hlY2tvdXREaXNjb3VudENvZGUnKS52YWx1ZS50cmltKCkudG9VcHBlckNhc2UoKTsKICBjb25zdCBlcnJCb3ggPSAkKCdjaGVja291dEVycm9yJyk7CiAgZXJyQm94LmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cnKTsKICBpZighY29kZSl7IGFwcGxpZWREaXNjb3VudFBlcmNlbnQgPSAwOyB1cGRhdGVDaGVja291dFN1bW1hcnkoKTsgcmV0dXJuOyB9CgogIHRyeXsKICAg',
+  'IGNvbnN0IHJlcyA9IGF3YWl0IGZldGNoKEFQSV9CQVNFICsgJy9hcGkvZGlzY291bnQtY2hlY2s/Y29kZT0nICsgZW5jb2RlVVJJQ29tcG9uZW50KGNvZGUpLCB7IGNhY2hlOiduby1zdG9yZScgfSk7CiAgICBjb25zdCBkYXRhID0gYXdhaXQgcmVzLmpzb24oKTsKICAgIGlmKCFkYXRhLnZhbGlkKXsKICAgICAgY29uc3QgbWFwID0gewogICAgICAgIGRpc2NvdW50X2ludmFsaWQ6ICdNw6MgZ2nhuqNtIGdpw6Ega2jDtG5nIHThu5NuIHThuqFpIGhv4bq3YyDEkcOjIGLhu4sgdOG6r3QnLAogICAgICAgIGRpc2NvdW50X2V4cGly',
+  'ZWQ6ICdNw6MgZ2nhuqNtIGdpw6EgxJHDoyBo4bq/dCBo4bqhbicsCiAgICAgICAgZGlzY291bnRfdXNlZF91cDogJ03DoyBnaeG6o20gZ2nDoSDEkcOjIGjhur90IGzGsOG7o3Qgc+G7rSBk4bulbmcnCiAgICAgIH07CiAgICAgIGFwcGxpZWREaXNjb3VudFBlcmNlbnQgPSAwOwogICAgICB1cGRhdGVDaGVja291dFN1bW1hcnkoKTsKICAgICAgdGhyb3cgbmV3IEVycm9yKG1hcFtkYXRhLmVycm9yXSB8fCAnTcOjIGdp4bqjbSBnacOhIGtow7RuZyBo4bujcCBs4buHJyk7CiAgICB9CiAgICBhcHBsaWVkRGlzY291bnRQZXJjZW50',
+  'ID0gZGF0YS5wZXJjZW50OwogICAgdXBkYXRlQ2hlY2tvdXRTdW1tYXJ5KCk7CiAgICBzaG93VG9hc3QoJ8SQw6Mgw6FwIGThu6VuZyBtw6MgZ2nhuqNtICcgKyBkYXRhLnBlcmNlbnQgKyAnJScpOwogIH1jYXRjaChlKXsKICAgIGVyckJveC50ZXh0Q29udGVudCA9IGUubWVzc2FnZTsKICAgIGVyckJveC5jbGFzc0xpc3QuYWRkKCdzaG93Jyk7CiAgfQp9KTsKCiQoJ2J0bkNvbmZpcm1DaGVja291dCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgYXN5bmMgKCk9PnsKICBjb25zdCBlcnJCb3ggPSAkKCdjaGVja291dEVycm9y',
+  'Jyk7CiAgZXJyQm94LmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cnKTsKICBjb25zdCBjb2RlID0gJCgnY2hlY2tvdXREaXNjb3VudENvZGUnKS52YWx1ZS50cmltKCkudG9VcHBlckNhc2UoKTsKICBjb25zdCBidG4gPSAkKCdidG5Db25maXJtQ2hlY2tvdXQnKTsKICBidG4uZGlzYWJsZWQgPSB0cnVlOyBidG4udGV4dENvbnRlbnQgPSAnxJBhbmcgeOG7rSBsw70uLi4nOwoKICB0cnl7CiAgICBjb25zdCByZXMgPSBhd2FpdCBmZXRjaChBUElfQkFTRSArICcvYXBpL2NoZWNrb3V0JywgewogICAgICBtZXRob2Q6J1BPU1QnLCBoZWFk',
+  'ZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24vanNvbid9LAogICAgICBib2R5OiBKU09OLnN0cmluZ2lmeSh7IHRva2VuOiBjdXN0b21lclRva2VuLCBwcm9kdWN0SWQ6IGNoZWNrb3V0UHJvZHVjdC5pZCwgZGlzY291bnRDb2RlOiBjb2RlIH0pCiAgICB9KTsKICAgIGNvbnN0IGRhdGEgPSBhd2FpdCByZXMuanNvbigpOwogICAgaWYoIXJlcy5vayB8fCAhZGF0YS5vayl7CiAgICAgIGNvbnN0IG1hcCA9IHsKICAgICAgICBub3RfbG9nZ2VkX2luOiAnUGhpw6puIMSRxINuZyBuaOG6rXAgxJHDoyBo4bq/dCBo4bqhbiwg',
+  'dnVpIGzDsm5nIMSRxINuZyBuaOG6rXAgbOG6oWknLAogICAgICAgIHByb2R1Y3Rfbm90X2ZvdW5kOiAnU+G6o24gcGjhuqltIGtow7RuZyBjw7JuIHThu5NuIHThuqFpJywKICAgICAgICBkaXNjb3VudF9pbnZhbGlkOiAnTcOjIGdp4bqjbSBnacOhIGtow7RuZyBo4bujcCBs4buHJywKICAgICAgICBkaXNjb3VudF9leHBpcmVkOiAnTcOjIGdp4bqjbSBnacOhIMSRw6MgaOG6v3QgaOG6oW4nLAogICAgICAgIGRpc2NvdW50X3VzZWRfdXA6ICdNw6MgZ2nhuqNtIGdpw6EgxJHDoyBo4bq/dCBsxrDhu6N0IHPhu60gZOG7pW5nJywK',
+  'ICAgICAgICBvdXRfb2Zfc3RvY2s6ICdT4bqjbiBwaOG6qW0gduG7q2EgaOG6v3QgaMOgbmcsIHZ1aSBsw7JuZyB0aOG7rSBs4bqhaSBzYXUnCiAgICAgIH07CiAgICAgIHRocm93IG5ldyBFcnJvcihtYXBbZGF0YS5lcnJvcl0gfHwgJ011YSBrZXkgdGjhuqV0IGLhuqFpLCB2dWkgbMOybmcgdGjhu60gbOG6oWknKTsKICAgIH0KCiAgICBjbG9zZUNoZWNrb3V0TW9kYWwoKTsKICAgICQoJ3Jlc3VsdEtleVZhbHVlJykudGV4dENvbnRlbnQgPSBkYXRhLmtleTsKICAgIGNvbnN0IGV4cGlyeVR4dCA9IGRhdGEuZXhwaXJlc0F0ID8g',
+  'bmV3IERhdGUoZGF0YS5leHBpcmVzQXQpLnRvTG9jYWxlU3RyaW5nKCd2aS1WTicpIDogJ0tow7RuZyBnaeG7m2kgaOG6oW4nOwogICAgJCgncmVzdWx0S2V5TWV0YScpLnRleHRDb250ZW50ID0gYEjhuqFuIGTDuW5nOiAke2V4cGlyeVR4dH0gwrcgU+G7kSB0aGnhur90IGLhu4sgY2hvIHBow6lwOiAke2RhdGEubWF4RGV2aWNlc3x8MX0gwrcgxJDDoyB0aGFuaCB0b8OhbjogJHtmbXRNb25leShkYXRhLnByaWNlUGFpZCl9YDsKICAgICQoJ3Jlc3VsdE1vZGFsQmcnKS5jbGFzc0xpc3QuYWRkKCdzaG93Jyk7CiAgICBsb2FkUHJv',
+  'ZHVjdHMoKTsKICB9Y2F0Y2goZSl7CiAgICBlcnJCb3gudGV4dENvbnRlbnQgPSBlLm1lc3NhZ2U7CiAgICBlcnJCb3guY2xhc3NMaXN0LmFkZCgnc2hvdycpOwogIH1maW5hbGx5ewogICAgYnRuLmRpc2FibGVkID0gZmFsc2U7IGJ0bi50ZXh0Q29udGVudCA9ICdYw6FjIG5o4bqtbiBtdWEnOwogIH0KfSk7CgovKiAtLS0tLS0tLS0tIE1vZGFsIEvhur90IHF14bqjIC0tLS0tLS0tLS0gKi8KJCgnYnRuQ2xvc2VSZXN1bHQnKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpPT4gJCgncmVzdWx0TW9kYWxCZycpLmNsYXNzTGlz',
+  'dC5yZW1vdmUoJ3Nob3cnKSk7CiQoJ2J0bkNvcHlSZXN1bHRLZXknKS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpPT57CiAgY29uc3QgdmFsID0gJCgncmVzdWx0S2V5VmFsdWUnKS50ZXh0Q29udGVudDsKICBuYXZpZ2F0b3IuY2xpcGJvYXJkLndyaXRlVGV4dCh2YWwpLnRoZW4oKCk9PiBzaG93VG9hc3QoJ8SQw6Mgc2FvIGNow6lwIGtleScpKS5jYXRjaCgoKT0+IHNob3dUb2FzdCgnS2jDtG5nIHNhbyBjaMOpcCDEkcaw4bujYywgdnVpIGzDsm5nIGNvcHkgdGjhu6cgY8O0bmcnKSk7Cn0pOwoKLyogLS0tLS0tLS0tLSBL',
+  'aOG7n2kgxJHhu5luZyAmIHThu7EgbMOgbSBt4bubaSBz4bqjbiBwaOG6qW0gdGhlbyBhZG1pbiAtLS0tLS0tLS0tICovCmxvYWRQcm9kdWN0cygpOwpzZXRJbnRlcnZhbChsb2FkUHJvZHVjdHMsIDgwMDApOyAvLyB04buxIMSR4buZbmcgY+G6rXAgbmjhuq10IHPhuqNuIHBo4bqpbS904buTbiBraG8gdGhlbyBhZG1pbiBn4bqnbiBuaMawIHJlYWwtdGltZQo8L3NjcmlwdD4KPC9ib2R5Pgo8L2h0bWw+Cgo=',
+];
+const STORE_PAGE = Buffer.from(STORE_B64_CHUNKS.join(''), 'base64').toString('utf8');
+
+const HTML_PAGE = HTML_LINES.join(String.fromCharCode(10));
+
+/* ---------------- Lưu trữ dữ liệu ra file (persist thật trên server) ---------------- */
+function defaultState(){
+  return {
+    adminPassword: '120510@',
+    loginHistory: [],
+    keysStore: {},
+    sellers: [],
+    blockedIPs: [],
+    scanState: {},
+    lastScanTime: null,
+    statsHidden: false,
+    apiApps: [],     // { id, appId, status: 'pending'|'allowed'|'denied', createdAt, lastUsedAt, totalChecks }
+    verifyLogs: [],   // { time, appId, key, valid, reason }
+    products: [],     // { id, name, logo, keyPrefix, price, maxDevices, durationAmount, durationUnit, active, createdAt }
+    discountCodes: [],// { id, code, percent, maxUses, usedCount, expiresAt, active, createdAt }
+    customers: [],    // { id, username, passwordHash, createdAt }
+    customerSessions: {} // { token: { customerId, username, createdAt } }
+  };
+}
+
+let db = loadDB();
+let saveTimer = null;
+
+function loadDB(){
+  try{
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return { ...defaultState(), ...parsed };
+  }catch(e){
+    /* Nếu db.json bị hỏng (JSON không hợp lệ) hoặc chưa tồn tại, thay vì để lỗi
+       lan ra ngoài làm sập tiến trình, ta sao lưu file lỗi (nếu có) rồi khởi
+       tạo lại dữ liệu mặc định, giúp server luôn khởi động thành công. */
+    try{
+      if(fs.existsSync(DB_FILE)){
+        fs.copyFileSync(DB_FILE, DB_FILE + '.broken-' + Date.now() + '.bak');
+        console.error('[KeyVault] db.json bị lỗi/hỏng, đã sao lưu và tạo dữ liệu mặc định:', e.message);
+      }
+    }catch(backupErr){ /* bỏ qua lỗi sao lưu, không ảnh hưởng khởi động */ }
+    return defaultState();
+  }
+}
+
+function saveDBNow(){
+  try{
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
+  }catch(e){
+    console.error('[KeyVault] Lỗi ghi db.json:', e.message);
+  }
+}
+
+// Gộp nhiều lần ghi liên tiếp lại để tránh ghi đĩa quá nhiều lần/giây
+function saveDBDebounced(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveDBNow, 150);
+}
+
+/* ---------------- Tiện ích HTTP ---------------- */
+function sendJSON(res, status, obj){
+  const body = JSON.stringify(obj);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  });
+  res.end(body);
+}
+
+function readJSONBody(req){
+  return new Promise((resolve, reject)=>{
+    let data = '';
+    req.on('data', chunk=>{
+      data += chunk;
+      if(data.length > 10 * 1024 * 1024){ reject(new Error('payload_too_large')); req.destroy(); }
+    });
+    req.on('end', ()=>{
+      if(!data){ resolve({}); return; }
+      try{ resolve(JSON.parse(data)); }catch(e){ reject(e); }
+    });
+    req.on('error', reject);
+  });
+}
+
+/* ---------------- Logic nghiệp vụ key ---------------- */
+function findKeyEverywhere(value){
+  if(!value) return null;
+  for(const owner of Object.keys(db.keysStore || {})){
+    const arr = db.keysStore[owner] || [];
+    const found = arr.find(k => k.value === value);
+    if(found) return { owner, key: found };
+  }
+  return null;
+}
+
+function computeKeyStatus(k){
+  if(k.banned) return 'banned';
+  if(k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()) return 'expired';
+  return k.status || 'available';
+}
+
+function getOrRegisterApp(appId){
+  let app = (db.apiApps || []).find(a => a.appId === appId);
+  if(!app){
+    app = {
+      id: crypto.randomBytes(8).toString('hex'),
+      appId,
+      status: 'pending', // admin phải chủ động Cho phép mới dùng được
+      createdAt: new Date().toISOString(),
+      lastUsedAt: null,
+      totalChecks: 0
+    };
+    db.apiApps = db.apiApps || [];
+    db.apiApps.push(app);
+  }
+  return app;
+}
+
+function logVerifyCall(entry){
+  db.verifyLogs = db.verifyLogs || [];
+  db.verifyLogs.unshift(entry);
+  db.verifyLogs = db.verifyLogs.slice(0, 200);
+}
+
+/* ---------------- Logic tài khoản khách hàng (storefront) ---------------- */
+function hashPassword(password){
+  // Băm mật khẩu bằng SHA-256 + salt cố định của hệ thống (đủ dùng cho quy mô nhỏ,
+  // không lưu mật khẩu dạng thô).
+  return crypto.createHash('sha256').update('keyvault-store::' + String(password)).digest('hex');
+}
+
+function genToken(){
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function getCustomerByToken(token){
+  if(!token) return null;
+  const session = (db.customerSessions || {})[token];
+  if(!session) return null;
+  const customer = (db.customers || []).find(c => c.id === session.customerId);
+  if(!customer) return null;
+  return { customer, session };
+}
+
+/* Đếm số key còn hàng khớp tiền tố sản phẩm, gộp tất cả chủ sở hữu (owner) trong kho. */
+function countAvailableForPrefix(prefix){
+  const p = String(prefix || '').toUpperCase();
+  let count = 0;
+  for(const owner of Object.keys(db.keysStore || {})){
+    const arr = db.keysStore[owner] || [];
+    count += arr.filter(k => String(k.value||'').toUpperCase().startsWith(p + '-') && computeKeyStatus(k) === 'available' && !k.customer).length;
+  }
+  return count;
+}
+
+/* Tìm 1 key còn hàng khớp tiền tố sản phẩm, ở bất kỳ chủ sở hữu (owner) nào trong kho. */
+function findAvailableKeyForPrefix(prefix){
+  const p = String(prefix || '').toUpperCase();
+  for(const owner of Object.keys(db.keysStore || {})){
+    const arr = db.keysStore[owner] || [];
+    const found = arr.find(k => String(k.value||'').toUpperCase().startsWith(p + '-') && computeKeyStatus(k) === 'available' && !k.customer);
+    if(found) return { owner, key: found };
+  }
+  return null;
+}
+
+/* ---------------- Router ---------------- */
+const server = http.createServer(async (req, res)=>{
+  let url;
+  try{
+    url = new URL(req.url, `http://${req.headers.host}`);
+  }catch(e){
+    return sendJSON(res, 400, { error: 'bad_request' });
+  }
+  const { pathname } = url;
+
+  if(req.method === 'OPTIONS'){
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    return res.end();
+  }
+
+  try{
+    /* ---- Trang gốc: phục vụ trang BÁN KEY công khai (storefront) cho khách hàng.
+       Dashboard quản trị (đăng nhập admin/người bán) chuyển sang địa chỉ "/admin". ---- */
+    if(pathname === '/' && req.method === 'GET'){
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      return res.end(STORE_PAGE);
+    }
+
+    /* ---- Dashboard quản trị / người bán (đăng nhập bằng tài khoản admin hoặc seller) ---- */
+    if(pathname === '/admin' && req.method === 'GET'){
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      return res.end(HTML_PAGE);
+    }
+
+    /* ---- Endpoint trạng thái server (JSON) — dùng để kiểm tra nhanh server còn sống,
+       cũng là endpoint được tool chống ngủ đông tự "ping" định kỳ (xem phần cuối file) ---- */
+    if(pathname === '/api/status' && req.method === 'GET'){
+      return sendJSON(res, 200, {
+        ok: true,
+        service: 'keyvault-server-proxy',
+        message: 'Server đang chạy — trang bán key tại "/", dashboard quản trị tại "/admin".',
+        endpoints: ['/', '/admin', '/api/state', '/api/verify', '/api/products', '/api/auth/register', '/api/auth/login', '/api/checkout', '/api/apps', '/api/logs']
+      });
+    }
+
+    /* ---- 1) Auto lưu / tải toàn bộ dữ liệu dashboard ---- */
+    if(pathname === '/api/state' && req.method === 'GET'){
+      return sendJSON(res, 200, db);
+    }
+    if(pathname === '/api/state' && req.method === 'POST'){
+      const body = await readJSONBody(req);
+      // chỉ ghi đè các trường thuộc dashboard, không đụng tới apiApps/verifyLogs
+      db.adminPassword = body.adminPassword ?? db.adminPassword;
+      db.loginHistory  = body.loginHistory  ?? db.loginHistory;
+      db.keysStore     = body.keysStore     ?? db.keysStore;
+      db.sellers        = body.sellers        ?? db.sellers;
+      db.blockedIPs     = body.blockedIPs     ?? db.blockedIPs;
+      db.scanState       = body.scanState       ?? db.scanState;
+      db.lastScanTime     = body.lastScanTime     ?? db.lastScanTime;
+      db.statsHidden        = typeof body.statsHidden === 'boolean' ? body.statsHidden : db.statsHidden;
+      db.products      = body.products      ?? db.products;
+      db.discountCodes = body.discountCodes ?? db.discountCodes;
+      saveDBDebounced();
+      return sendJSON(res, 200, { ok: true, savedAt: new Date().toISOString() });
+    }
+
+    /* ---- 2) API xác thực key công khai — app/tool bên ngoài gọi tới đây ---- */
+    if(pathname === '/api/verify' && (req.method === 'GET' || req.method === 'POST')){
+      let key, appId, device;
+      if(req.method === 'GET'){
+        key = url.searchParams.get('key');
+        appId = url.searchParams.get('app') || url.searchParams.get('app_id') || 'unknown-app';
+        device = url.searchParams.get('device') || url.searchParams.get('device_id') || '';
+      } else {
+        const body = await readJSONBody(req);
+        key = body.key;
+        appId = body.app_id || body.appId || body.app || 'unknown-app';
+        device = body.device || body.device_id || body.deviceId || '';
+      }
+      appId = String(appId).trim().slice(0, 100) || 'unknown-app';
+      device = String(device || '').trim().slice(0, 200);
+
+      if(!key){
+        return sendJSON(res, 400, { valid: false, reason: 'missing_key' });
+      }
+
+      // 3) Tự động nhận diện app/tool đang gọi tới
+      const app = getOrRegisterApp(appId);
+      app.lastUsedAt = new Date().toISOString();
+      app.totalChecks = (app.totalChecks || 0) + 1;
+
+      // App chưa được admin cấp phép -> luôn từ chối, không tiết lộ key có tồn tại hay không
+      if(app.status !== 'allowed'){
+        const reason = app.status === 'denied' ? 'app_denied' : 'app_pending_approval';
+        logVerifyCall({ time: new Date().toISOString(), appId, key, valid: false, reason });
+        saveDBDebounced();
+        return sendJSON(res, 200, { valid: false, reason });
+      }
+
+      const found = findKeyEverywhere(key);
+      if(!found){
+        logVerifyCall({ time: new Date().toISOString(), appId, key, valid: false, reason: 'key_not_found' });
+        saveDBDebounced();
+        return sendJSON(res, 200, { valid: false, reason: 'key_not_found' });
+      }
+
+      const status = computeKeyStatus(found.key);
+      let valid = status !== 'banned' && status !== 'expired';
+      let reason = valid ? 'ok' : status;
+
+      // ---- Giới hạn số thiết bị được phép kích hoạt trên 1 key ----
+      if(valid && device){
+        found.key.devices = Array.isArray(found.key.devices)
+          ? found.key.devices
+          : (found.key.deviceId ? [found.key.deviceId] : []);
+        const maxDevices = found.key.maxDevices || 1;
+        if(!found.key.devices.includes(device)){
+          if(found.key.devices.length >= maxDevices){
+            valid = false;
+            reason = 'device_limit_exceeded';
+          } else {
+            found.key.devices.push(device);
+            found.key.deviceId = found.key.devices[0]; // giữ tương thích ngược với các bản cũ chỉ đọc deviceId
+          }
+        }
+      }
+
+      logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason });
+      saveDBDebounced();
+      return sendJSON(res, 200, {
+        valid,
+        status,
+        reason,
+        type: found.key.type || null,
+        expiresAt: found.key.expiresAt || null,
+        maxDevices: found.key.maxDevices || 1,
+        devicesUsed: (found.key.devices || []).length
+      });
+    }
+
+    /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
+    if(pathname === '/api/logs' && req.method === 'GET'){
+      return sendJSON(res, 200, db.verifyLogs || []);
+    }
+
+    /* ================= TRANG BÁN KEY (STOREFRONT) ================= */
+
+    /* ---- Danh sách sản phẩm công khai (chỉ trả sản phẩm đang bật + còn hàng) ---- */
+    if(pathname === '/api/products' && req.method === 'GET'){
+      const list = (db.products || []).filter(p => p.active).map(p => ({ ...p, stock: countAvailableForPrefix(p.keyPrefix) }));
+      return sendJSON(res, 200, list);
+    }
+
+    /* ---- Đăng ký tài khoản khách hàng ---- */
+    if(pathname === '/api/auth/register' && req.method === 'POST'){
+      const body = await readJSONBody(req);
+      const username = String(body.username || '').trim();
+      const password = String(body.password || '');
+      if(!username || !password){
+        return sendJSON(res, 400, { ok:false, error: 'missing_fields' });
+      }
+      if(password.length < 4){
+        return sendJSON(res, 400, { ok:false, error: 'password_too_short' });
+      }
+      db.customers = db.customers || [];
+      if(db.customers.some(c => c.username.toLowerCase() === username.toLowerCase())){
+        return sendJSON(res, 409, { ok:false, error: 'username_taken' });
+      }
+      const customer = {
+        id: crypto.randomBytes(8).toString('hex'),
+        username,
+        passwordHash: hashPassword(password),
+        createdAt: new Date().toISOString()
+      };
+      db.customers.push(customer);
+      const token = genToken();
+      db.customerSessions = db.customerSessions || {};
+      db.customerSessions[token] = { customerId: customer.id, username, createdAt: new Date().toISOString() };
+      saveDBNow();
+      return sendJSON(res, 200, { ok:true, token, username });
+    }
+
+    /* ---- Đăng nhập tài khoản khách hàng ---- */
+    if(pathname === '/api/auth/login' && req.method === 'POST'){
+      const body = await readJSONBody(req);
+      const username = String(body.username || '').trim();
+      const password = String(body.password || '');
+      const customer = (db.customers || []).find(c => c.username.toLowerCase() === username.toLowerCase());
+      if(!customer || customer.passwordHash !== hashPassword(password)){
+        return sendJSON(res, 401, { ok:false, error: 'invalid_credentials' });
+      }
+      const token = genToken();
+      db.customerSessions = db.customerSessions || {};
+      db.customerSessions[token] = { customerId: customer.id, username: customer.username, createdAt: new Date().toISOString() };
+      saveDBNow();
+      return sendJSON(res, 200, { ok:true, token, username: customer.username });
+    }
+
+    /* ---- Kiểm tra token khách hàng còn hiệu lực không (dùng khi tải lại trang) ---- */
+    if(pathname === '/api/auth/me' && req.method === 'GET'){
+      const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || url.searchParams.get('token');
+      const found = getCustomerByToken(token);
+      if(!found) return sendJSON(res, 401, { ok:false });
+      return sendJSON(res, 200, { ok:true, username: found.customer.username });
+    }
+
+    /* ---- Xem trước mã giảm giá (không tính vào số lượt đã dùng) ---- */
+    if(pathname === '/api/discount-check' && req.method === 'GET'){
+      const code = String(url.searchParams.get('code') || '').trim().toUpperCase();
+      const disc = (db.discountCodes || []).find(d => d.code === code);
+      if(!disc || !disc.active){
+        return sendJSON(res, 200, { valid:false, error: 'discount_invalid' });
+      }
+      if(disc.expiresAt && new Date(disc.expiresAt).getTime() < Date.now()){
+        return sendJSON(res, 200, { valid:false, error: 'discount_expired' });
+      }
+      if(disc.maxUses > 0 && disc.usedCount >= disc.maxUses){
+        return sendJSON(res, 200, { valid:false, error: 'discount_used_up' });
+      }
+      return sendJSON(res, 200, { valid:true, percent: disc.percent });
+    }
+
+    /* ---- Thanh toán / mua key ---- */
+    if(pathname === '/api/checkout' && req.method === 'POST'){
+      const body = await readJSONBody(req);
+      const token = body.token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const authed = getCustomerByToken(token);
+      if(!authed){
+        return sendJSON(res, 401, { ok:false, error: 'not_logged_in' });
+      }
+
+      const product = (db.products || []).find(p => p.id === body.productId && p.active);
+      if(!product){
+        return sendJSON(res, 404, { ok:false, error: 'product_not_found' });
+      }
+
+      let finalPrice = parseFloat(String(product.price).replace(/[^\d.]/g,'')) || 0;
+      let usedDiscount = null;
+      const rawCode = String(body.discountCode || '').trim().toUpperCase();
+      if(rawCode){
+        const disc = (db.discountCodes || []).find(d => d.code === rawCode);
+        if(!disc || !disc.active){
+          return sendJSON(res, 400, { ok:false, error: 'discount_invalid' });
+        }
+        if(disc.expiresAt && new Date(disc.expiresAt).getTime() < Date.now()){
+          return sendJSON(res, 400, { ok:false, error: 'discount_expired' });
+        }
+        if(disc.maxUses > 0 && disc.usedCount >= disc.maxUses){
+          return sendJSON(res, 400, { ok:false, error: 'discount_used_up' });
+        }
+        finalPrice = Math.round(finalPrice * (1 - disc.percent / 100));
+        usedDiscount = disc;
+      }
+
+      const foundKey = findAvailableKeyForPrefix(product.keyPrefix);
+      if(!foundKey){
+        return sendJSON(res, 409, { ok:false, error: 'out_of_stock' });
+      }
+
+      foundKey.key.status = 'sold';
+      foundKey.key.customer = authed.customer.username;
+      foundKey.key.price = String(finalPrice);
+      foundKey.key.soldAt = new Date().toISOString();
+      if(usedDiscount) usedDiscount.usedCount = (usedDiscount.usedCount || 0) + 1;
+
+      saveDBNow();
+      return sendJSON(res, 200, {
+        ok: true,
+        key: foundKey.key.value,
+        expiresAt: foundKey.key.expiresAt || null,
+        maxDevices: foundKey.key.maxDevices || 1,
+        pricePaid: finalPrice
+      });
+    }
+
+    /* ---- Quản lý danh sách app/tool được phép dùng server key (admin) ---- */
+    if(pathname === '/api/apps' && req.method === 'GET'){
+      return sendJSON(res, 200, db.apiApps || []);
+    }
+
+    const approveMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)\/approve$/);
+    if(approveMatch && req.method === 'POST'){
+      const app = (db.apiApps || []).find(a => a.id === approveMatch[1]);
+      if(!app) return sendJSON(res, 404, { error: 'not_found' });
+      app.status = 'allowed';
+      saveDBDebounced();
+      return sendJSON(res, 200, app);
+    }
+
+    const denyMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)\/deny$/);
+    if(denyMatch && req.method === 'POST'){
+      const app = (db.apiApps || []).find(a => a.id === denyMatch[1]);
+      if(!app) return sendJSON(res, 404, { error: 'not_found' });
+      app.status = 'denied';
+      saveDBDebounced();
+      return sendJSON(res, 200, app);
+    }
+
+    const removeMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)$/);
+    if(removeMatch && req.method === 'DELETE'){
+      db.apiApps = (db.apiApps || []).filter(a => a.id !== removeMatch[1]);
+      saveDBDebounced();
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    return sendJSON(res, 404, { error: 'not_found' });
+  }catch(e){
+    console.error('[KeyVault] Lỗi xử lý request:', e);
+    return sendJSON(res, 500, { error: 'server_error', message: String((e && e.message) || e) });
+  }
+});
+
+/* Bắt lỗi ở tầng server (ví dụ cổng đang bị chiếm - EADDRINUSE) để in log rõ
+   ràng thay vì để tiến trình thoát đột ngột không rõ nguyên nhân. */
+server.on('error', (err)=>{
+  console.error('[KeyVault] Lỗi server (listen):', err && err.stack ? err.stack : err);
+});
+
+/* Bind rõ '0.0.0.0' (thay vì để mặc định) để đảm bảo Render/Docker luôn nhận
+   được kết nối tới cổng PORT từ bên ngoài container. */
+server.listen(PORT, '0.0.0.0', ()=>{
+  console.log(`✔ KeyVault server đang chạy tại http://localhost:${PORT}`);
+  console.log(`  Dữ liệu được lưu tại: ${DB_FILE}`);
+  console.log(`  Giao diện web: http://localhost:${PORT}/  (đã gộp chung vào index.js)`);
+  console.log(`  Link xác thực API key: http://localhost:${PORT}/api/verify?key=...&app=...`);
+  try{
+    startAntiSleep();
+  }catch(e){
+    console.error('[KeyVault] Lỗi khởi động anti-sleep (bỏ qua, không ảnh hưởng server chính):', e && e.message);
+  }
+});
+
+/* ---------------- Chống ngủ đông trên gói miễn phí Render ----------------
+   Render gói Free sẽ tự "ngủ" (sleep) sau khoảng 15 phút KHÔNG có request nào
+   gọi tới server. Để hạn chế việc này, server tự gửi 1 request tới chính nó
+   mỗi 4 phút (dưới 15 phút) để luôn có lưu lượng request tới, giữ server "thức".
+
+   ⚠️ LƯU Ý QUAN TRỌNG: cơ chế tự ping này chỉ hoạt động khi tiến trình server
+   ĐANG chạy — nếu Render đã cho server ngủ trước khi cơ chế này kịp ping (ví dụ
+   server vừa khởi động lại, hoặc mất mạng tạm thời) thì sẽ không tự đánh thức
+   được. Để đảm bảo server chạy 24/7 chắc chắn hơn, bạn nên kết hợp thêm MỘT
+   trong các cách sau (miễn phí, làm bên ngoài Render):
+     1) UptimeRobot (uptimerobot.com) — tạo "HTTP(s) monitor" gọi tới:
+          https://<địa-chỉ-app-của-bạn>.onrender.com/api/status
+        mỗi 5 phút.
+     2) cron-job.org — tạo cron job GET tới cùng địa chỉ trên, mỗi 5 phút.
+   Hai dịch vụ trên gọi từ BÊN NGOÀI vào server nên đánh thức được server kể cả
+   khi server vừa mới ngủ, đảm bảo uptime 24/7 tốt hơn nhiều so với chỉ tự ping. */
+function startAntiSleep(){
+  const selfUrl = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || null;
+  if(!selfUrl){
+    console.log('  [Anti-sleep] Chưa xác định được địa chỉ public của server (biến RENDER_EXTERNAL_URL). Bỏ qua tự ping — vẫn nên cấu hình UptimeRobot/cron-job.org như ghi chú ở trên.');
+    return;
+  }
+  const target = selfUrl.replace(/\/+$/, '') + '/api/status';
+  console.log(`  [Anti-sleep] Sẽ tự ping ${target} mỗi 4 phút để chống ngủ đông.`);
+  setInterval(()=>{
+    try{
+      https.get(target, (r)=>{ r.resume(); }).on('error', (e)=>{
+        console.warn('[Anti-sleep] Ping thất bại (không nghiêm trọng, sẽ thử lại sau):', e.message);
+      });
+    }catch(e){ /* bỏ qua lỗi ping, không ảnh hưởng server chính */ }
+  }, 4 * 60 * 1000);
+}
+
+// Đảm bảo ghi dữ liệu lần cuối khi tắt server bằng Ctrl+C
+process.on('SIGINT', ()=>{ saveDBNow(); process.exit(0); });
+process.on('SIGTERM', ()=>{ saveDBNow(); process.exit(0); });
