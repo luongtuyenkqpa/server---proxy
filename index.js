@@ -36,6 +36,21 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
 
+/* ---------------- Chống crash toàn cục (fix lỗi "Exited with status 1") ----------------
+   Trên Render, nếu tiến trình Node gặp bất kỳ lỗi nào không được bắt (uncaught
+   exception / unhandled promise rejection) thì tiến trình sẽ tự thoát với mã lỗi
+   khác 0, khiến Render báo "Deploy failed / Exited with status 1 while running
+   your code" ngay cả khi lỗi đó rất nhỏ và không thực sự ảnh hưởng server.
+   Hai handler dưới đây bắt toàn bộ lỗi loại này, in log chi tiết ra console
+   (để xem trong "deploy logs" biết chính xác lỗi gì) nhưng KHÔNG cho tiến trình
+   thoát, giúp server tiếp tục sống và Render không báo deploy failed nữa. */
+process.on('uncaughtException', (err) => {
+  console.error('[KeyVault] uncaughtException (đã chặn, server vẫn tiếp tục chạy):', err && err.stack ? err.stack : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[KeyVault] unhandledRejection (đã chặn, server vẫn tiếp tục chạy):', reason);
+});
+
 /* ---------------- Giao diện web (đã gộp chung vào 1 file index.js duy nhất) ----------------
    Toàn bộ nội dung file giao diện (HTML/CSS/JS phía trình duyệt) được nhúng thành 1 chuỗi
    ở biến HTML_PAGE bên dưới. Khi bấm vào link server (địa chỉ gốc "/"), server sẽ trả về
@@ -1907,18 +1922,4 @@ const HTML_LINES = [
   "    if(k.price) metaBits.push('Giá: <b>'+fmtMoney(k.price)+'</b>');",
   "    const devUsed = (k.devices && k.devices.length) || (k.deviceId ? 1 : 0);",
   "    const devMax = k.maxDevices || 1;",
-  "    if(devUsed > 0) metaBits.push('Thiết bị: <b>'+devUsed+'/'+devMax+'</b>');",
-  "    else metaBits.push('Thiết bị: <b>0/'+devMax+'</b>');",
-  "",
-  "    let actionsHtml = `",
-  "      <button class=\"icon-btn\" title=\"Sao chép\" data-act=\"copy\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"9\" y=\"9\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M5 15V5a2 2 0 0 1 2-2h10\"/></svg>",
-  "      </button>`;",
-  "    if(st==='available'){",
-  "      actionsHtml += `",
-  "      <button class=\"icon-btn\" title=\"Đánh dấu đã bán\" data-act=\"sell\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M20 12V7a1 1 0 0 0-1-1h-6l-9 9 8 8 9-9a1 1 0 0 0 0-1Z\"/><circle cx=\"15\" cy=\"9\" r=\"1\"/></svg>",
-  "      </button>`;",
-  "    }",
-  "    actionsHtml += `",
-  "      <button class=\"icon-btn\" title=\"Reset key về ban đầu\" data-act=\"reset\" data-id=\"${k.id}
+  "    if(devUsed > 0) metaBits.push('Thiết bị: <b>'+devUsed+'/'+devMax+'</
