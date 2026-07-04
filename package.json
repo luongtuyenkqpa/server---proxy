@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "KeyVault - Server + giao diện web gộp chung 1 file index.js",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
