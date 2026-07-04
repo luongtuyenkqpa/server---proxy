@@ -530,6 +530,7 @@ const HTML_LINES = [
   "    <button class=\"tab-btn\" data-page=\"security\">Bảo mật Server</button>",
   "    <button class=\"tab-btn\" data-page=\"sellers\" data-admin-only=\"1\">Người bán</button>",
   "    <button class=\"tab-btn\" data-page=\"apikey\" data-admin-only=\"1\">API Key Server</button>",
+  "    <button class=\"tab-btn\" data-page=\"products\" data-admin-only=\"1\">Sản phẩm &amp; Mã giảm giá</button>",
   "  </nav>",
   "</header>",
   "",
@@ -620,6 +621,10 @@ const HTML_LINES = [
   "",
   "        <label>Số lượng key sinh</label>",
   "        <input type=\"number\" id=\"cfgQty\" value=\"10\" min=\"1\" max=\"500\">",
+  "",
+  "        <label>Số thiết bị cho phép / key</label>",
+  "        <input type=\"number\" id=\"cfgMaxDevices\" value=\"1\" min=\"1\" max=\"20\">",
+  "        <p class=\"preview-note\" style=\"margin-top:6px;\">Mỗi key chỉ được kích hoạt tối đa số thiết bị này. Mặc định <b>1</b> (1 key = 1 thiết bị). Có thể tăng lên nếu muốn cho phép dùng nhiều máy.</p>",
   "",
   "        <label>Giá bán mỗi key (tuỳ chọn)</label>",
   "        <input type=\"text\" id=\"cfgPrice\" placeholder=\"VD: 99000\">",
@@ -920,6 +925,122 @@ const HTML_LINES = [
   "    </div>",
   "  </div>",
   "",
+  "  <!-- ============ PAGE: SẢN PHẨM (STOREFRONT) & MÃ GIẢM GIÁ ============ -->",
+  "  <div id=\"page-products\" style=\"display:none;\">",
+  "    <div class=\"sec-note\">",
+  "      Trang bán key công khai nằm ở địa chỉ gốc <b>\"/\"</b> của server (khách không cần đăng nhập admin). Sản phẩm bạn tạo ở đây sẽ <b>tự động hiện lên</b> trang bán key ngay khi lưu. Mỗi sản phẩm cần gắn với 1 <b>tiền tố key</b> — hệ thống sẽ tự lấy key <b>còn hàng</b> có tiền tố đó trong kho \"Quản lý Key\" để giao cho khách khi mua thành công.",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:20px;\">",
+  "      <h2 id=\"productFormTitle\">Thêm sản phẩm mới</h2>",
+  "      <p class=\"sub\">Tuỳ chỉnh tên, logo, giá bán và thời hạn hiển thị cho khách trên trang bán key.</p>",
+  "",
+  "      <label>Tên sản phẩm</label>",
+  "      <input type=\"text\" id=\"prodName\" placeholder=\"VD: Gói PRO 30 ngày\">",
+  "",
+  "      <label>Logo sản phẩm (chọn ảnh từ điện thoại)</label>",
+  "      <div style=\"display:flex; align-items:center; gap:14px; margin-bottom:6px;\">",
+  "        <div id=\"prodLogoPreview\" style=\"width:56px; height:56px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;\">",
+  "          <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" style=\"width:22px; height:22px; color:var(--muted);\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><circle cx=\"9\" cy=\"9\" r=\"2\"/><path d=\"m21 15-5-5L5 21\"/></svg>",
+  "        </div>",
+  "        <input type=\"file\" id=\"prodLogoInput\" accept=\"image/*\" style=\"flex:1;\">",
+  "      </div>",
+  "",
+  "      <label>Tiền tố key liên kết (prefix)</label>",
+  "      <input type=\"text\" id=\"prodKeyPrefix\" placeholder=\"VD: PRO\" maxlength=\"10\" style=\"text-transform:uppercase;\">",
+  "      <p class=\"preview-note\" style=\"margin-top:6px;\">Phải trùng với tiền tố (prefix) bạn dùng khi \"Sinh key ngay\" ở trang Quản lý Key. Còn hàng = key có tiền tố này đang ở trạng thái \"Còn hàng\".</p>",
+  "",
+  "      <div class=\"row2\">",
+  "        <div>",
+  "          <label>Giá bán (₫)</label>",
+  "          <input type=\"text\" id=\"prodPrice\" placeholder=\"VD: 99000\">",
+  "        </div>",
+  "        <div>",
+  "          <label>Số thiết bị / key (hiển thị cho khách)</label>",
+  "          <input type=\"number\" id=\"prodMaxDevices\" value=\"1\" min=\"1\" max=\"20\">",
+  "        </div>",
+  "      </div>",
+  "",
+  "      <label>Thời hạn sản phẩm</label>",
+  "      <div class=\"chip-toggle\" id=\"prodDurationToggle\">",
+  "        <input type=\"radio\" name=\"pdur\" id=\"pdurLimited\" value=\"limited\" checked><label for=\"pdurLimited\">Có thời hạn</label>",
+  "        <input type=\"radio\" name=\"pdur\" id=\"pdurUnlimited\" value=\"unlimited\"><label for=\"pdurUnlimited\">Không giới hạn</label>",
+  "      </div>",
+  "      <div class=\"row2\" id=\"prodDurationFields\" style=\"margin-top:10px;\">",
+  "        <div>",
+  "          <label>Số lượng</label>",
+  "          <input type=\"number\" id=\"prodDurationAmount\" value=\"30\" min=\"1\">",
+  "        </div>",
+  "        <div>",
+  "          <label>Đơn vị</label>",
+  "          <select id=\"prodDurationUnit\">",
+  "            <option value=\"hour\">Giờ</option>",
+  "            <option value=\"day\" selected>Ngày</option>",
+  "            <option value=\"month\">Tháng</option>",
+  "          </select>",
+  "        </div>",
+  "      </div>",
+  "",
+  "      <label style=\"margin-top:14px; display:flex; align-items:center; gap:8px;\"><input type=\"checkbox\" id=\"prodActive\" checked style=\"width:auto;\"> Hiển thị sản phẩm này trên trang bán key</label>",
+  "",
+  "      <button class=\"btn\" id=\"btnSaveProduct\" style=\"margin-top:16px;\">Lưu sản phẩm</button>",
+  "      <button class=\"btn btn-ghost\" id=\"btnCancelEditProduct\" style=\"margin-top:10px; display:none;\">Huỷ chỉnh sửa</button>",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:24px;\">",
+  "      <div class=\"panel-head\">",
+  "        <div>",
+  "          <h2>Danh sách sản phẩm</h2>",
+  "          <p class=\"sub\">Quản lý các sản phẩm đang hiển thị trên trang bán key.</p>",
+  "        </div>",
+  "      </div>",
+  "      <div id=\"productList\" style=\"margin-top:14px; display:grid; gap:12px;\"></div>",
+  "      <div class=\"empty\" id=\"productEmpty\" style=\"display:none;\">",
+  "        <div class=\"big\">Chưa có sản phẩm nào</div>",
+  "        Thêm sản phẩm ở form phía trên để bắt đầu bán key.",
+  "      </div>",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:24px;\">",
+  "      <h2>Thêm mã giảm giá</h2>",
+  "      <p class=\"sub\">Mã giảm % trên giá key khi khách thanh toán ở trang bán key.</p>",
+  "      <div class=\"row2\">",
+  "        <div>",
+  "          <label>Mã giảm giá</label>",
+  "          <input type=\"text\" id=\"discCode\" placeholder=\"VD: SALE20\" style=\"text-transform:uppercase;\">",
+  "        </div>",
+  "        <div>",
+  "          <label>Phần trăm giảm (%)</label>",
+  "          <input type=\"number\" id=\"discPercent\" value=\"10\" min=\"1\" max=\"99\">",
+  "        </div>",
+  "      </div>",
+  "      <div class=\"row2\">",
+  "        <div>",
+  "          <label>Số lượt dùng tối đa (0 = không giới hạn)</label>",
+  "          <input type=\"number\" id=\"discMaxUses\" value=\"0\" min=\"0\">",
+  "        </div>",
+  "        <div>",
+  "          <label>Hạn dùng (tuỳ chọn)</label>",
+  "          <input type=\"datetime-local\" id=\"discExpiry\">",
+  "        </div>",
+  "      </div>",
+  "      <button class=\"btn\" id=\"btnAddDiscount\" style=\"margin-top:14px;\">Tạo mã giảm giá</button>",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:24px;\">",
+  "      <h2>Danh sách mã giảm giá</h2>",
+  "      <div class=\"table-wrap\">",
+  "        <table id=\"discountTable\">",
+  "          <thead><tr><th>Mã</th><th>Giảm</th><th>Đã dùng</th><th>Hạn dùng</th><th>Trạng thái</th><th>Hành động</th></tr></thead>",
+  "          <tbody></tbody>",
+  "        </table>",
+  "      </div>",
+  "      <div class=\"empty\" id=\"discountEmpty\" style=\"display:none;\">",
+  "        <div class=\"big\">Chưa có mã giảm giá nào</div>",
+  "      </div>",
+  "    </div>",
+  "  </div>",
+  "",
   "</main>",
   "",
   "<footer>KeyVault — Hệ thống bảo mật · an toàn · chất lượng. Dữ liệu được tự động mã hoá &amp; lưu trữ trên máy chủ.</footer>",
@@ -1168,6 +1289,7 @@ const HTML_LINES = [
   "    document.getElementById('page-security').style.display = 'none';",
   "    document.getElementById('page-sellers').style.display = 'none';",
   "    document.getElementById('page-apikey').style.display = 'none';",
+  "    document.getElementById('page-products').style.display = 'none';",
   "    // seller luôn dùng thời gian hiện tại khi tạo key",
   "    document.getElementById('createdAtNow').checked = true;",
   "    document.getElementById('createdAtCustomField').style.display = 'none';",
@@ -1331,12 +1453,18 @@ const HTML_LINES = [
   "    document.getElementById('page-security').style.display = currentPage==='security' ? 'block' : 'none';",
   "    document.getElementById('page-sellers').style.display = currentPage==='sellers' ? 'block' : 'none';",
   "    document.getElementById('page-apikey').style.display = currentPage==='apikey' ? 'block' : 'none';",
+  "    document.getElementById('page-products').style.display = currentPage==='products' ? 'block' : 'none';",
   "    if(currentPage==='stats') renderStatsPage();",
   "    if(currentPage==='security') renderSecurityPage();",
   "    if(currentPage==='sellers') renderSellersPage();",
   "    if(currentPage==='apikey') renderApiKeyPage();",
+  "    if(currentPage==='products') renderProductsPage();",
   "  });",
   "});",
+  "",
+  "/* ============ SẢN PHẨM (STOREFRONT) & MÃ GIẢM GIÁ (ADMIN ONLY) ============ */",
+  "let products = []; // {id, name, logo(dataURL), price, durationAmount, durationUnit, keyPrefix, maxDevices, active, createdAt}",
+  "let discountCodes = []; // {id, code, percent, maxUses, usedCount, expiresAt, active, createdAt}",
   "",
   "/* ============ SELLER ACCOUNT MANAGEMENT (ADMIN ONLY) ============ */",
   "let sellers = []; // {id, username, password, createdAt, expiresAt, banned, balance}",
@@ -1649,6 +1777,7 @@ const HTML_LINES = [
   "  const groups = Math.max(1, Math.min(8, parseInt($('cfgGroups').value)||1));",
   "  const len = Math.max(2, Math.min(10, parseInt($('cfgLen').value)||4));",
   "  const qty = Math.max(1, Math.min(500, parseInt($('cfgQty').value)||1));",
+  "  const maxDevices = Math.max(1, Math.min(20, parseInt($('cfgMaxDevices').value)||1));",
   "  const price = $('cfgPrice').value.trim();",
   "  const charset = getCharset();",
   "  const type = document.querySelector('input[name=ktype]:checked').value;",
@@ -1717,6 +1846,8 @@ const HTML_LINES = [
   "      customer:'',",
   "      price: price || '',",
   "      deviceId: null,",
+  "      maxDevices,",
+  "      devices: [],",
   "      createdAt: new Date(baseCreatedAt),",
   "      expiresAt",
   "    });",
@@ -1774,7 +1905,10 @@ const HTML_LINES = [
   "    metaBits.push('<span class=\"'+(remain==='Đã hết hạn'?'expired-txt':'active-txt')+'\">'+remain+'</span>');",
   "    if(k.status==='sold' && k.customer) metaBits.push('KH: <b>'+k.customer+'</b>');",
   "    if(k.price) metaBits.push('Giá: <b>'+fmtMoney(k.price)+'</b>');",
-  "    if(k.deviceId) metaBits.push('Thiết bị: <b>'+k.deviceId+'</b>');",
+  "    const devUsed = (k.devices && k.devices.length) || (k.deviceId ? 1 : 0);",
+  "    const devMax = k.maxDevices || 1;",
+  "    if(devUsed > 0) metaBits.push('Thiết bị: <b>'+devUsed+'/'+devMax+'</b>');",
+  "    else metaBits.push('Thiết bị: <b>0/'+devMax+'</b>');",
   "",
   "    let actionsHtml = `",
   "      <button class=\"icon-btn\" title=\"Sao chép\" data-act=\"copy\" data-id=\"${k.id}\">",
@@ -1787,924 +1921,4 @@ const HTML_LINES = [
   "      </button>`;",
   "    }",
   "    actionsHtml += `",
-  "      <button class=\"icon-btn\" title=\"Reset key về ban đầu\" data-act=\"reset\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 12a9 9 0 1 0 3-6.7\"/><path d=\"M3 4v5h5\"/></svg>",
-  "      </button>`;",
-  "    if(k.deviceId){",
-  "      actionsHtml += `",
-  "      <button class=\"icon-btn\" title=\"Reset thiết bị liên kết\" data-act=\"resetdevice\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"5\" y=\"2\" width=\"14\" height=\"20\" rx=\"2\"/><path d=\"M12 18h.01\"/></svg>",
-  "      </button>`;",
-  "    }",
-  "    if(k.banned){",
-  "      actionsHtml += `",
-  "      <button class=\"icon-btn\" title=\"Bỏ cấm key\" data-act=\"unban\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 12l3 3 5-6\"/></svg>",
-  "      </button>`;",
-  "    } else {",
-  "      actionsHtml += `",
-  "      <button class=\"icon-btn danger\" title=\"Cấm key\" data-act=\"ban\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M5.5 5.5l13 13\"/></svg>",
-  "      </button>`;",
-  "    }",
-  "    actionsHtml += `",
-  "      <button class=\"icon-btn danger\" title=\"Xoá key vĩnh viễn\" data-act=\"delete\" data-id=\"${k.id}\">",
-  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg>",
-  "      </button>`;",
-  "",
-  "    div.innerHTML = `",
-  "      <div class=\"ticket-top\">",
-  "        <div class=\"key\">${k.value}</div>",
-  "        <div class=\"ticket-badges\">",
-  "          <span class=\"badge ${k.type}\">${k.type==='premium' ? '★ Premium' : 'Thường'}</span>",
-  "          <span class=\"badge ${st}\">${STATUS_LABEL[st]}</span>",
-  "        </div>",
-  "      </div>",
-  "      <div class=\"ticket-bottom\">",
-  "        <div class=\"meta\">${metaBits.join(' &nbsp;·&nbsp; ')}</div>",
-  "        <div class=\"actions\">${actionsHtml}</div>",
-  "      </div>",
-  "    `;",
-  "    roll.appendChild(div);",
-  "  });",
-  "",
-  "  $('statTotal').textContent = keys.length;",
-  "  $('statAvail').textContent = keys.filter(k=>computeStatus(k)==='available').length;",
-  "  const soldKeys = keys.filter(k=>k.status==='sold' && !k.banned);",
-  "  $('statSold').textContent = keys.filter(k=>computeStatus(k)==='sold').length;",
-  "  $('statExpired').textContent = keys.filter(k=>computeStatus(k)==='expired').length;",
-  "  $('statBanned').textContent = keys.filter(k=>k.banned).length;",
-  "  const revenue = soldKeys.reduce((sum,k)=> sum + (parseFloat(String(k.price).replace(/[^\\d.]/g,''))||0), 0);",
-  "  $('statRevenue').textContent = revenue.toLocaleString('vi-VN')+'₫';",
-  "}",
-  "",
-  "$('rollList').addEventListener('click', (e)=>{",
-  "  const btn = e.target.closest('.icon-btn');",
-  "  if(!btn) return;",
-  "  const id = btn.dataset.id;",
-  "  const act = btn.dataset.act;",
-  "  const k = keys.find(x=>x.id===id);",
-  "  if(!k) return;",
-  "",
-  "  if(act==='copy'){",
-  "    navigator.clipboard.writeText(k.value);",
-  "    showToast('Đã sao chép: '+k.value);",
-  "  } else if(act==='sell'){",
-  "    sellTargetId = id;",
-  "    $('sellCustomer').value='';",
-  "    $('sellPrice').value = k.price || $('cfgPrice').value || '';",
-  "    $('sellDevice').value = k.deviceId || '';",
-  "    $('sellModalBg').classList.add('show');",
-  "  } else if(act==='reset'){",
-  "    k.status='available'; k.banned=false; k.customer=''; k.deviceId=null; k.price='';",
-  "    render();",
-  "    showToast('Đã reset key về trạng thái ban đầu');",
-  "  } else if(act==='resetdevice'){",
-  "    k.deviceId = null;",
-  "    render();",
-  "    showToast('Đã reset thiết bị liên kết với key');",
-  "  } else if(act==='ban'){",
-  "    k.banned = true;",
-  "    render();",
-  "    showToast('Đã cấm key: '+k.value);",
-  "  } else if(act==='unban'){",
-  "    k.banned = false;",
-  "    render();",
-  "    showToast('Đã bỏ cấm key: '+k.value);",
-  "  } else if(act==='delete'){",
-  "    if(confirm('Xoá vĩnh viễn key này khỏi danh sách?')){",
-  "      setKeys(keys.filter(x=>x.id!==id));",
-  "      render();",
-  "      showToast('Đã xoá key');",
-  "    }",
-  "  }",
-  "});",
-  "",
-  "$('sellCancel').addEventListener('click', ()=> $('sellModalBg').classList.remove('show'));",
-  "$('sellConfirm').addEventListener('click', ()=>{",
-  "  const k = keys.find(x=>x.id===sellTargetId);",
-  "  if(k){",
-  "    k.status='sold';",
-  "    k.customer = $('sellCustomer').value.trim();",
-  "    k.price = $('sellPrice').value.trim();",
-  "    k.deviceId = $('sellDevice').value.trim() || null;",
-  "  }",
-  "  $('sellModalBg').classList.remove('show');",
-  "  render();",
-  "  showToast('Đã đánh dấu key là đã bán');",
-  "});",
-  "",
-  "$('btnGenerate').addEventListener('click', generateKeys);",
-  "$('search').addEventListener('input', render);",
-  "$('filterStatus').addEventListener('change', render);",
-  "$('filterType').addEventListener('change', render);",
-  "",
-  "$('btnCopyAvail').addEventListener('click', ()=>{",
-  "  const avail = keys.filter(k=>computeStatus(k)==='available').map(k=>k.value).join('\\n');",
-  "  if(!avail){ showToast('Không có key còn hàng'); return; }",
-  "  navigator.clipboard.writeText(avail);",
-  "  showToast('Đã sao chép toàn bộ key còn hàng');",
-  "});",
-  "",
-  "$('btnExport').addEventListener('click', ()=>{",
-  "  if(!keys.length){ showToast('Chưa có key để xuất'); return; }",
-  "  const rows = [['Key','Loại','Trạng thái','Khách hàng','Giá','Thiết bị','Ngày tạo','Hết hạn']];",
-  "  keys.forEach(k=>{",
-  "    rows.push([k.value, k.type, STATUS_LABEL[computeStatus(k)], k.customer||'', k.price||'', k.deviceId||'', formatDateTime(k.createdAt), k.expiresAt?formatDateTime(k.expiresAt):'Không giới hạn']);",
-  "  });",
-  "  const csv = rows.map(r=> r.map(c=>`\"${String(c).replace(/\"/g,'\"\"')}\"`).join(',')).join('\\n');",
-  "  const blob = new Blob(['\\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});",
-  "  const url = URL.createObjectURL(blob);",
-  "  const a = document.createElement('a');",
-  "  a.href = url; a.download = 'danh-sach-key.csv';",
-  "  a.click();",
-  "  URL.revokeObjectURL(url);",
-  "  showToast('Đã xuất file CSV');",
-  "});",
-  "",
-  "$('btnClear').addEventListener('click', ()=>{",
-  "  if(!keys.length) return;",
-  "  if(confirm('Xoá toàn bộ '+keys.length+' key? Hành động này không thể hoàn tác.')){",
-  "    setKeys([]);",
-  "    render();",
-  "    showToast('Đã xoá toàn bộ key');",
-  "  }",
-  "});",
-  "",
-  "let toastTimer;",
-  "function showToast(msg){",
-  "  const t = $('toast');",
-  "  t.textContent = msg;",
-  "  t.classList.add('show');",
-  "  clearTimeout(toastTimer);",
-  "  toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);",
-  "}",
-  "",
-  "/* ============ STATS PAGE ============ */",
-  "function renderStatsPage(){",
-  "  $('stTotalKeys').textContent = keys.length;",
-  "  $('stActiveKeys').textContent = keys.filter(k=>{const s=computeStatus(k); return s==='available'||s==='sold';}).length;",
-  "  $('stExpiredKeys').textContent = keys.filter(k=>computeStatus(k)==='expired').length;",
-  "  $('stPremiumKeys').textContent = keys.filter(k=>k.type==='premium').length;",
-  "  $('stLoginCount').textContent = loginHistory.length;",
-  "",
-  "  // creation chart: last 7 days",
-  "  const days = [];",
-  "  for(let i=6;i>=0;i--){",
-  "    const d = new Date();",
-  "    d.setDate(d.getDate()-i);",
-  "    d.setHours(0,0,0,0);",
-  "    days.push(d);",
-  "  }",
-  "  const counts = days.map(d=>{",
-  "    const next = new Date(d); next.setDate(next.getDate()+1);",
-  "    return keys.filter(k=> new Date(k.createdAt) >= d && new Date(k.createdAt) < next).length;",
-  "  });",
-  "  const max = Math.max(1, ...counts);",
-  "  const chart = $('creationChart');",
-  "  chart.innerHTML = '';",
-  "  days.forEach((d,i)=>{",
-  "    const col = document.createElement('div');",
-  "    col.className = 'bar-col';",
-  "    const h = Math.round((counts[i]/max)*100);",
-  "    col.innerHTML = `<div class=\"bar-val\">${counts[i]}</div><div class=\"bar\" style=\"height:${h}%\"></div><div class=\"bar-label\">${d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}</div>`;",
-  "    chart.appendChild(col);",
-  "  });",
-  "",
-  "  // type breakdown",
-  "  const total = keys.length || 1;",
-  "  const premium = keys.filter(k=>k.type==='premium').length;",
-  "  const normal = keys.length - premium;",
-  "  const pPct = Math.round((premium/total)*100);",
-  "  const nPct = 100 - pPct;",
-  "  $('typeBreakdown').innerHTML = `",
-  "    <div class=\"type-bar-row\">",
-  "      <div class=\"lbl\"><span>★ Premium</span><span>${premium} key (${pPct}%)</span></div>",
-  "      <div class=\"type-bar-track\"><div class=\"type-bar-fill\" style=\"width:${pPct}%; background:linear-gradient(90deg,var(--brass-soft),var(--brass));\"></div></div>",
-  "    </div>",
-  "    <div class=\"type-bar-row\">",
-  "      <div class=\"lbl\"><span>Thường</span><span>${normal} key (${nPct}%)</span></div>",
-  "      <div class=\"type-bar-track\"><div class=\"type-bar-fill\" style=\"width:${nPct}%; background:var(--muted);\"></div></div>",
-  "    </div>",
-  "  `;",
-  "",
-  "  // expiry table",
-  "  const tbody = document.querySelector('#expiryTable tbody');",
-  "  tbody.innerHTML = '';",
-  "  if(!keys.length){",
-  "    tbody.innerHTML = '<tr><td colspan=\"5\" style=\"color:var(--muted); text-align:center; padding:24px;\">Chưa có key nào được tạo</td></tr>';",
-  "  } else {",
-  "    keys.forEach(k=>{",
-  "      const st = computeStatus(k);",
-  "      const tr = document.createElement('tr');",
-  "      tr.innerHTML = `",
-  "        <td class=\"mono\">${k.value}</td>",
-  "        <td><span class=\"badge ${k.type}\">${k.type==='premium'?'★ Premium':'Thường'}</span></td>",
-  "        <td><span class=\"badge ${st}\">${STATUS_LABEL[st]}</span></td>",
-  "        <td>${k.expiresAt ? formatDateTime(k.expiresAt) : 'Không giới hạn'}</td>",
-  "        <td>${formatRemaining(k.expiresAt)}</td>",
-  "      `;",
-  "      tbody.appendChild(tr);",
-  "    });",
-  "  }",
-  "",
-  "  // login history table",
-  "  const ltbody = document.querySelector('#loginTable tbody');",
-  "  ltbody.innerHTML = '';",
-  "  loginHistory.forEach(h=>{",
-  "    const tr = document.createElement('tr');",
-  "    tr.innerHTML = `",
-  "      <td>${formatDateTime(h.time)}</td>",
-  "      <td>${h.user}</td>",
-  "      <td><span class=\"pill ${h.success?'ok':'danger'}\">${h.success?'Thành công':'Thất bại'}</span></td>",
-  "    `;",
-  "    ltbody.appendChild(tr);",
-  "  });",
-  "}",
-  "",
-  "/* ============ SECURITY PAGE (dữ liệu thật do admin thao tác, không tự sinh số liệu ảo) ============ */",
-  "let blockedIPs = []; // chỉ có phần tử khi admin tự thêm",
-  "let lastScanTime = null;",
-  "",
-  "function renderSecurityPage(){",
-  "  $('secBlockedIP').textContent = blockedIPs.length;",
-  "  $('secLastScan').textContent = lastScanTime ? formatDateTime(lastScanTime) : 'Chưa đánh giá';",
-  "  renderScanChecklist();",
-  "",
-  "  const tbody = document.querySelector('#ipTable tbody');",
-  "  tbody.innerHTML = '';",
-  "  if(!blockedIPs.length){",
-  "    tbody.innerHTML = '<tr><td colspan=\"5\" style=\"color:var(--muted); text-align:center; padding:24px;\">Không có IP nào bị chặn</td></tr>';",
-  "  } else {",
-  "    blockedIPs.forEach((b,idx)=>{",
-  "      const tr = document.createElement('tr');",
-  "      tr.innerHTML = `",
-  "        <td class=\"mono\">${b.ip}</td>",
-  "        <td>${b.reason}</td>",
-  "        <td>${formatDateTime(b.time)}</td>",
-  "        <td><span class=\"pill danger\">Đã chặn</span></td>",
-  "        <td><button class=\"btn btn-ghost btn-inline\" data-unblock=\"${idx}\" style=\"padding:6px 12px; font-size:11.5px;\">Bỏ chặn</button></td>",
-  "      `;",
-  "      tbody.appendChild(tr);",
-  "    });",
-  "  }",
-  "}",
-  "",
-  "document.querySelector('#ipTable').addEventListener('click', (e)=>{",
-  "  const btn = e.target.closest('[data-unblock]');",
-  "  if(!btn) return;",
-  "  const idx = parseInt(btn.dataset.unblock);",
-  "  const ip = blockedIPs[idx]?.ip;",
-  "  blockedIPs.splice(idx,1);",
-  "  renderSecurityPage();",
-  "  showToast('Đã bỏ chặn IP: '+ip);",
-  "});",
-  "",
-  "$('btnRefreshIP').addEventListener('click', ()=>{",
-  "  $('blockIpValue').value = '';",
-  "  $('blockIpModalBg').classList.add('show');",
-  "});",
-  "$('blockIpCancel').addEventListener('click', ()=> $('blockIpModalBg').classList.remove('show'));",
-  "$('blockIpConfirm').addEventListener('click', ()=>{",
-  "  const ip = $('blockIpValue').value.trim();",
-  "  if(!ip){ showToast('Vui lòng nhập địa chỉ IP'); return; }",
-  "  blockedIPs.unshift({ ip, reason: $('blockIpReason').value, time: new Date() });",
-  "  $('blockIpModalBg').classList.remove('show');",
-  "  renderSecurityPage();",
-  "  showToast('Đã chặn IP: '+ip);",
-  "});",
-  "",
-  "const VULN_CHECKS = [",
-  "  {name:'Cổng dịch vụ không cần thiết', desc:'Kiểm tra các cổng đang mở ngoài dự kiến'},",
-  "  {name:'Chứng chỉ SSL/TLS', desc:'Kiểm tra hiệu lực và cấu hình chứng chỉ'},",
-  "  {name:'Mật khẩu quản trị mặc định', desc:'Kiểm tra tài khoản còn dùng mật khẩu mặc định'},",
-  "  {name:'Cập nhật phần mềm máy chủ', desc:'Kiểm tra phiên bản phần mềm đã lỗi thời'},",
-  "  {name:'Tường lửa (Firewall)', desc:'Kiểm tra trạng thái hoạt động của firewall'},",
-  "  {name:'Bản vá bảo mật hệ điều hành', desc:'Kiểm tra các bản vá còn thiếu'},",
-  "  {name:'Phân quyền thư mục / tệp tin', desc:'Kiểm tra quyền truy cập không phù hợp'},",
-  "  {name:'Giới hạn đăng nhập sai (rate limit)', desc:'Kiểm tra cơ chế chống dò mật khẩu'}",
-  "];",
-  "",
-  "let scanState = {}; // { [checkName]: 'ok'|'warn'|'fail' } — chỉ đổi khi admin tự chọn",
-  "",
-  "function renderScanChecklist(){",
-  "  const resultsBox = $('scanResults');",
-  "  resultsBox.innerHTML = '';",
-  "  VULN_CHECKS.forEach(c=>{",
-  "    const status = scanState[c.name] || null;",
-  "    const item = document.createElement('div');",
-  "    item.className = 'scan-item';",
-  "    item.innerHTML = `",
-  "      <div>",
-  "        <div class=\"name\">${c.name}</div>",
-  "        <div class=\"desc\">${c.desc}</div>",
-  "      </div>",
-  "      <div class=\"chip-toggle\" data-check=\"${c.name}\" style=\"margin:0;\">",
-  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"ok-${c.name}\" ${status==='ok'?'checked':''}><label for=\"ok-${c.name}\">Đạt</label>",
-  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"warn-${c.name}\" ${status==='warn'?'checked':''}><label for=\"warn-${c.name}\">Cảnh báo</label>",
-  "        <input type=\"radio\" name=\"chk-${c.name}\" id=\"fail-${c.name}\" ${status==='fail'?'checked':''}><label for=\"fail-${c.name}\">Nguy hiểm</label>",
-  "      </div>",
-  "    `;",
-  "    resultsBox.appendChild(item);",
-  "  });",
-  "  updateScanSummary();",
-  "}",
-  "",
-  "$('scanResults').addEventListener('change', (e)=>{",
-  "  const group = e.target.closest('[data-check]');",
-  "  if(!group) return;",
-  "  const name = group.dataset.check;",
-  "  const status = e.target.id.startsWith('ok-') ? 'ok' : e.target.id.startsWith('warn-') ? 'warn' : 'fail';",
-  "  scanState[name] = status;",
-  "  lastScanTime = new Date();",
-  "  updateScanSummary();",
-  "});",
-  "",
-  "function updateScanSummary(){",
-  "  const evaluated = Object.values(scanState);",
-  "  const failCount = evaluated.filter(s=>s==='fail').length;",
-  "  const warnCount = evaluated.filter(s=>s==='warn').length;",
-  "  const okCount = evaluated.filter(s=>s==='ok').length;",
-  "  $('secStatus').textContent = evaluated.length===0 ? 'Chưa đánh giá' : failCount>0 ? 'Nguy hiểm' : warnCount>0 ? 'Cảnh báo' : 'An toàn';",
-  "  $('secLastScan').textContent = lastScanTime ? formatDateTime(lastScanTime) : 'Chưa đánh giá';",
-  "  $('scanSummary').textContent = evaluated.length",
-  "    ? `Đã đánh giá ${evaluated.length}/${VULN_CHECKS.length} mục — ${failCount} nguy hiểm, ${warnCount} cảnh báo, ${okCount} đạt.`",
-  "    : 'Chưa có mục nào được đánh giá. Chọn kết quả cho từng mục ở trên.';",
-  "}",
-  "",
-  "$('btnResetScan').addEventListener('click', ()=>{",
-  "  scanState = {};",
-  "  lastScanTime = null;",
-  "  renderScanChecklist();",
-  "  showToast('Đã đặt lại checklist bảo mật');",
-  "});",
-  "",
-  "/* Refresh time-sensitive text periodically while app is open */",
-  "setInterval(()=>{",
-  "  if(currentPage==='keys') render();",
-  "  if(currentPage==='stats') renderStatsPage();",
-  "  if(currentRole==='seller') applySellerAccountEffects();",
-  "}, 30000);",
-  "",
-  "/* ============================================================",
-  "   NÂNG CẤP MỚI (chỉ bổ sung — không sửa code phía trên):",
-  "   1) Tự động lưu/tải toàn bộ dữ liệu qua server backend thật",
-  "      (repo \"server---proxy\": index.js + package.json) — tải lại",
-  "      trang KHÔNG mất dữ liệu.",
-  "   2) Trang \"API Key Server\" — hiển thị link xác thực API key",
-  "      thật để dán vào app/tool bên ngoài.",
-  "   3) Tự động nhận diện app/tool nào đang gọi link xác thực,",
-  "      admin bấm Cho phép / Từ chối cho từng app.",
-  "   Bắt buộc: deploy backend (index.js) và sửa hằng số API_BASE",
-  "   bên dưới thành địa chỉ server đó (xem README.md).",
-  "   ============================================================ */",
-  "",
-  "const API_BASE = ''; // Giao diện và server API giờ đã được gộp chung 1 file index.js, chạy cùng domain nên để trống (dùng đường dẫn tương đối)",
-  "",
-  "/* ---------- 1) AUTO LƯU / TẢI TOÀN BỘ DỮ LIỆU ---------- */",
-  "let stateLoaded = false;",
-  "let lastSavedSnapshot = '';",
-  "",
-  "function collectAppState(){",
-  "  return { adminPassword, loginHistory, keysStore, sellers, blockedIPs, scanState, lastScanTime, statsHidden };",
-  "}",
-  "",
-  "function reviveDates(state){",
-  "  if(Array.isArray(state.loginHistory)) state.loginHistory.forEach(h=>{ h.time = h.time ? new Date(h.time) : new Date(); });",
-  "  if(state.keysStore){",
-  "    Object.keys(state.keysStore).forEach(owner=>{",
-  "      (state.keysStore[owner]||[]).forEach(k=>{",
-  "        k.createdAt = k.createdAt ? new Date(k.createdAt) : new Date();",
-  "        k.expiresAt = k.expiresAt ? new Date(k.expiresAt) : null;",
-  "      });",
-  "    });",
-  "  }",
-  "  if(Array.isArray(state.sellers)) state.sellers.forEach(s=>{",
-  "    s.createdAt = s.createdAt ? new Date(s.createdAt) : new Date();",
-  "    s.expiresAt = s.expiresAt ? new Date(s.expiresAt) : null;",
-  "    (s.notifications||[]).forEach(n=>{ n.time = n.time ? new Date(n.time) : new Date(); });",
-  "  });",
-  "  if(Array.isArray(state.blockedIPs)) state.blockedIPs.forEach(b=>{ b.time = b.time ? new Date(b.time) : new Date(); });",
-  "  return state;",
-  "}",
-  "",
-  "function applyAppState(s){",
-  "  if(!s || typeof s !== 'object') return;",
-  "  reviveDates(s);",
-  "  if(s.adminPassword) adminPassword = s.adminPassword;",
-  "  if(Array.isArray(s.loginHistory)) loginHistory = s.loginHistory;",
-  "  if(s.keysStore && typeof s.keysStore==='object') keysStore = s.keysStore;",
-  "  if(Array.isArray(s.sellers)) sellers = s.sellers;",
-  "  if(Array.isArray(s.blockedIPs)) blockedIPs = s.blockedIPs;",
-  "  if(s.scanState && typeof s.scanState==='object') scanState = s.scanState;",
-  "  lastScanTime = s.lastScanTime ? new Date(s.lastScanTime) : null;",
-  "  if(typeof s.statsHidden === 'boolean') statsHidden = s.statsHidden;",
-  "  if(currentAccount && keysStore[currentAccount]) setKeys(keysStore[currentAccount]);",
-  "}",
-  "",
-  "async function loadStateFromServer(){",
-  "  const loginBtn = document.getElementById('btnLogin');",
-  "  if(loginBtn){ loginBtn.disabled = true; loginBtn.textContent = 'Đang tải dữ liệu từ server...'; }",
-  "  try{",
-  "    const res = await fetch(API_BASE + '/api/state', { cache:'no-store' });",
-  "    if(!res.ok) throw new Error('HTTP ' + res.status);",
-  "    const s = await res.json();",
-  "    applyAppState(s);",
-  "    lastSavedSnapshot = JSON.stringify(collectAppState());",
-  "    const note = document.getElementById('apiConnStatusNote');",
-  "    if(note) note.textContent = '✔ Đã kết nối máy chủ backend. Dữ liệu được tự động lưu và khôi phục khi tải lại trang.';",
-  "  }catch(e){",
-  "    console.warn('[KeyVault] Không kết nối được backend. Hãy deploy repo backend (index.js) rồi sửa API_BASE trong file này thành đúng địa chỉ server.', e);",
-  "    const note = document.getElementById('apiConnStatusNote');",
-  "    if(note) note.textContent = '⚠ Chưa kết nối được máy chủ backend. Kiểm tra: (1) server (index.js) đã chạy chưa, (2) biến API_BASE trong file này đã sửa đúng địa chỉ server chưa. Dữ liệu sẽ KHÔNG được lưu khi tải lại trang cho tới khi kết nối được. Xem README.md.';",
-  "  } finally {",
-  "    stateLoaded = true;",
-  "    if(loginBtn){ loginBtn.disabled = false; loginBtn.textContent = 'Đăng nhập'; }",
-  "    refreshAllVisiblePages();",
-  "  }",
-  "}",
-  "",
-  "async function saveStateToServer(force){",
-  "  if(!stateLoaded) return;",
-  "  const snap = JSON.stringify(collectAppState());",
-  "  if(!force && snap === lastSavedSnapshot) return;",
-  "  lastSavedSnapshot = snap;",
-  "  try{",
-  "    await fetch(API_BASE + '/api/state', { method:'POST', headers:{'Content-Type':'application/json'}, body: snap });",
-  "  }catch(e){",
-  "    console.warn('[KeyVault] Lưu dữ liệu lên server thất bại, sẽ tự thử lại.', e);",
-  "    lastSavedSnapshot = ''; // buộc lần chạy tiếp theo thử lưu lại",
-  "  }",
-  "}",
-  "",
-  "function refreshAllVisiblePages(){",
-  "  if(currentRole) applyRoleVisibility();",
-  "  if(currentPage==='keys') render();",
-  "  if(currentPage==='stats') renderStatsPage();",
-  "  if(currentPage==='security') renderSecurityPage();",
-  "  if(currentPage==='sellers') renderSellersPage();",
-  "  if(currentPage==='apikey') renderApiKeyPage();",
-  "}",
-  "",
-  "setInterval(()=> saveStateToServer(false), 4000); // tự lưu định kỳ, chỉ gửi khi có thay đổi thật",
-  "window.addEventListener('beforeunload', ()=>{",
-  "  if(!stateLoaded) return;",
-  "  const snap = JSON.stringify(collectAppState());",
-  "  if(snap === lastSavedSnapshot) return;",
-  "  try{ navigator.sendBeacon(API_BASE + '/api/state', new Blob([snap], {type:'application/json'})); }catch(e){}",
-  "});",
-  "",
-  "loadStateFromServer();",
-  "",
-  "/* ---------- 2) & 3) TRANG \"API KEY SERVER\" ---------- */",
-  "let apiApps = [];",
-  "let apiLogs = [];",
-  "",
-  "function setupApiKeyLinks(){",
-  "  const origin = API_BASE; // backend nằm ở domain riêng (repo \"server---proxy\"), dùng thẳng API_BASE làm gốc",
-  "  const verifyUrl = origin + '/api/verify';",
-  "  document.getElementById('apiVerifyLink').value = verifyUrl;",
-  "  const appId = (document.getElementById('apiAppIdInput').value || 'my-app-01').trim() || 'my-app-01';",
-  "  document.getElementById('apiVerifyExample').value = `${verifyUrl}?key=KEY_CUA_KHACH_HANG&app=${encodeURIComponent(appId)}`;",
-  "  document.getElementById('apiCodeSample').textContent =",
-  "`// Dán đoạn này vào code xác thực key của app/tool bạn",
-  "const res = await fetch(\"${verifyUrl}?key=\" + userKey + \"&app=${appId}\");",
-  "const data = await res.json();",
-  "",
-  "if (data.valid) {",
-  "  // Key hợp lệ VÀ app/tool này đã được admin cho phép -> chạy tiếp",
-  "} else {",
-  "  // data.reason: \"key_not_found\" | \"app_pending_approval\" | \"app_denied\" | \"missing_key\"",
-  "  // Key sai, hết hạn/bị cấm, hoặc app chưa được cấp phép -> chặn sử dụng",
-  "  console.log(data.reason);",
-  "}`;",
-  "}",
-  "",
-  "async function fetchApiApps(){",
-  "  try{",
-  "    const res = await fetch(API_BASE + '/api/apps', {cache:'no-store'});",
-  "    apiApps = res.ok ? await res.json() : [];",
-  "  }catch(e){ /* giữ nguyên danh sách cũ nếu mất kết nối tạm thời */ }",
-  "  renderApiAppsTable();",
-  "}",
-  "",
-  "async function fetchApiLogs(){",
-  "  try{",
-  "    const res = await fetch(API_BASE + '/api/logs', {cache:'no-store'});",
-  "    apiLogs = res.ok ? await res.json() : [];",
-  "  }catch(e){ /* giữ nguyên log cũ nếu mất kết nối tạm thời */ }",
-  "  renderApiLogsTable();",
-  "}",
-  "",
-  "function renderApiAppsTable(){",
-  "  const total = apiApps.length;",
-  "  const pending = apiApps.filter(a=>a.status==='pending').length;",
-  "  const allowed = apiApps.filter(a=>a.status==='allowed').length;",
-  "  const denied = apiApps.filter(a=>a.status==='denied').length;",
-  "  document.getElementById('apiTotalApps').textContent = total;",
-  "  document.getElementById('apiPendingApps').textContent = pending;",
-  "  document.getElementById('apiAllowedApps').textContent = allowed;",
-  "  document.getElementById('apiDeniedApps').textContent = denied;",
-  "",
-  "  const tbody = document.querySelector('#apiAppsTable tbody');",
-  "  const empty = document.getElementById('apiAppsEmpty');",
-  "  tbody.innerHTML = '';",
-  "  empty.style.display = total ? 'none' : '';",
-  "  const STATUS_MAP = { allowed:{cls:'available', label:'✔ Cho phép'}, denied:{cls:'banned', label:'✕ Từ chối'}, pending:{cls:'sold', label:'⏳ Chờ duyệt'} };",
-  "  apiApps",
-  "    .slice()",
-  "    .sort((a,b)=> new Date(b.lastUsedAt||b.createdAt) - new Date(a.lastUsedAt||a.createdAt))",
-  "    .forEach(a=>{",
-  "      const st = STATUS_MAP[a.status] || STATUS_MAP.pending;",
-  "      const tr = document.createElement('tr');",
-  "      tr.innerHTML = `",
-  "        <td class=\"mono\">${a.appId}</td>",
-  "        <td><span class=\"badge ${st.cls}\">${st.label}</span></td>",
-  "        <td>${a.lastUsedAt ? formatDateTime(new Date(a.lastUsedAt)) : '—'}</td>",
-  "        <td>${a.totalChecks||0}</td>",
-  "        <td class=\"actions\">",
-  "          <button class=\"btn btn-ghost btn-inline\" data-app-action=\"approve\" data-id=\"${a.id}\" style=\"padding:6px 12px; font-size:11.5px;\">Cho phép</button>",
-  "          <button class=\"btn btn-danger-ghost btn-inline\" data-app-action=\"deny\" data-id=\"${a.id}\" style=\"padding:6px 12px; font-size:11.5px;\">Từ chối</button>",
-  "          <button class=\"icon-btn danger\" data-app-action=\"remove\" data-id=\"${a.id}\" title=\"Xoá ứng dụng\">✕</button>",
-  "        </td>",
-  "      `;",
-  "      tbody.appendChild(tr);",
-  "    });",
-  "}",
-  "",
-  "function renderApiLogsTable(){",
-  "  const tbody = document.querySelector('#apiLogsTable tbody');",
-  "  tbody.innerHTML = '';",
-  "  if(!apiLogs.length){",
-  "    tbody.innerHTML = '<tr><td colspan=\"4\" style=\"color:var(--muted); text-align:center; padding:24px;\">Chưa có lượt kiểm tra key nào</td></tr>';",
-  "    return;",
-  "  }",
-  "  apiLogs.slice(0,50).forEach(l=>{",
-  "    const tr = document.createElement('tr');",
-  "    tr.innerHTML = `",
-  "      <td>${formatDateTime(new Date(l.time))}</td>",
-  "      <td class=\"mono\">${l.appId}</td>",
-  "      <td class=\"mono\">${l.key}</td>",
-  "      <td><span class=\"pill ${l.valid?'ok':'danger'}\">${l.valid?'Hợp lệ':'Không hợp lệ'}</span></td>",
-  "    `;",
-  "    tbody.appendChild(tr);",
-  "  });",
-  "}",
-  "",
-  "function renderApiKeyPage(){",
-  "  setupApiKeyLinks();",
-  "  fetchApiApps();",
-  "  fetchApiLogs();",
-  "}",
-  "",
-  "document.getElementById('btnGenAppExample').addEventListener('click', setupApiKeyLinks);",
-  "document.getElementById('btnRefreshApps').addEventListener('click', ()=>{ fetchApiApps(); fetchApiLogs(); });",
-  "",
-  "function copyInputValue(inputId){",
-  "  const el = document.getElementById(inputId);",
-  "  el.select();",
-  "  if(navigator.clipboard){",
-  "    navigator.clipboard.writeText(el.value).then(()=> showToast('Đã sao chép')).catch(()=> showToast('Không sao chép được, vui lòng copy thủ công'));",
-  "  } else {",
-  "    showToast('Vui lòng copy thủ công (Ctrl+C)');",
-  "  }",
-  "}",
-  "document.getElementById('btnCopyVerifyLink').addEventListener('click', ()=> copyInputValue('apiVerifyLink'));",
-  "document.getElementById('btnCopyVerifyExample').addEventListener('click', ()=> copyInputValue('apiVerifyExample'));",
-  "",
-  "document.querySelector('#apiAppsTable').addEventListener('click', async (e)=>{",
-  "  const btn = e.target.closest('[data-app-action]');",
-  "  if(!btn) return;",
-  "  const id = btn.dataset.id;",
-  "  const action = btn.dataset.appAction;",
-  "  try{",
-  "    if(action==='approve'){",
-  "      await fetch(`${API_BASE}/api/apps/${id}/approve`, {method:'POST'});",
-  "      showToast('Đã cho phép ứng dụng dùng server key');",
-  "    } else if(action==='deny'){",
-  "      await fetch(`${API_BASE}/api/apps/${id}/deny`, {method:'POST'});",
-  "      showToast('Đã từ chối ứng dụng');",
-  "    } else if(action==='remove'){",
-  "      await fetch(`${API_BASE}/api/apps/${id}`, {method:'DELETE'});",
-  "      showToast('Đã xoá ứng dụng khỏi danh sách');",
-  "    }",
-  "  }catch(err){",
-  "    showToast('Thao tác thất bại — kiểm tra kết nối tới server backend (API_BASE)');",
-  "  }",
-  "  fetchApiApps();",
-  "});",
-  "",
-  "// Khi đang mở trang API Key Server, tự động làm mới để nhận diện app mới gọi vào gần như real-time",
-  "setInterval(()=>{ if(currentPage==='apikey'){ fetchApiApps(); fetchApiLogs(); } }, 5000);",
-  "</script>",
-  "</body>",
-  "</html>",
-  ""
-];
-const HTML_PAGE = HTML_LINES.join(String.fromCharCode(10));
-
-/* ---------------- Lưu trữ dữ liệu ra file (persist thật trên server) ---------------- */
-function defaultState(){
-  return {
-    adminPassword: '120510@',
-    loginHistory: [],
-    keysStore: {},
-    sellers: [],
-    blockedIPs: [],
-    scanState: {},
-    lastScanTime: null,
-    statsHidden: false,
-    apiApps: [],     // { id, appId, status: 'pending'|'allowed'|'denied', createdAt, lastUsedAt, totalChecks }
-    verifyLogs: []   // { time, appId, key, valid, reason }
-  };
-}
-
-let db = loadDB();
-let saveTimer = null;
-
-function loadDB(){
-  try{
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    return { ...defaultState(), ...parsed };
-  }catch(e){
-    return defaultState();
-  }
-}
-
-function saveDBNow(){
-  try{
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
-  }catch(e){
-    console.error('[KeyVault] Lỗi ghi db.json:', e.message);
-  }
-}
-
-// Gộp nhiều lần ghi liên tiếp lại để tránh ghi đĩa quá nhiều lần/giây
-function saveDBDebounced(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveDBNow, 150);
-}
-
-/* ---------------- Tiện ích HTTP ---------------- */
-function sendJSON(res, status, obj){
-  const body = JSON.stringify(obj);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  });
-  res.end(body);
-}
-
-function readJSONBody(req){
-  return new Promise((resolve, reject)=>{
-    let data = '';
-    req.on('data', chunk=>{
-      data += chunk;
-      if(data.length > 10 * 1024 * 1024){ reject(new Error('payload_too_large')); req.destroy(); }
-    });
-    req.on('end', ()=>{
-      if(!data){ resolve({}); return; }
-      try{ resolve(JSON.parse(data)); }catch(e){ reject(e); }
-    });
-    req.on('error', reject);
-  });
-}
-
-/* ---------------- Logic nghiệp vụ key ---------------- */
-function findKeyEverywhere(value){
-  if(!value) return null;
-  for(const owner of Object.keys(db.keysStore || {})){
-    const arr = db.keysStore[owner] || [];
-    const found = arr.find(k => k.value === value);
-    if(found) return { owner, key: found };
-  }
-  return null;
-}
-
-function computeKeyStatus(k){
-  if(k.banned) return 'banned';
-  if(k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()) return 'expired';
-  return k.status || 'available';
-}
-
-function getOrRegisterApp(appId){
-  let app = (db.apiApps || []).find(a => a.appId === appId);
-  if(!app){
-    app = {
-      id: crypto.randomBytes(8).toString('hex'),
-      appId,
-      status: 'pending', // admin phải chủ động Cho phép mới dùng được
-      createdAt: new Date().toISOString(),
-      lastUsedAt: null,
-      totalChecks: 0
-    };
-    db.apiApps = db.apiApps || [];
-    db.apiApps.push(app);
-  }
-  return app;
-}
-
-function logVerifyCall(entry){
-  db.verifyLogs = db.verifyLogs || [];
-  db.verifyLogs.unshift(entry);
-  db.verifyLogs = db.verifyLogs.slice(0, 200);
-}
-
-/* ---------------- Router ---------------- */
-const server = http.createServer(async (req, res)=>{
-  let url;
-  try{
-    url = new URL(req.url, `http://${req.headers.host}`);
-  }catch(e){
-    return sendJSON(res, 400, { error: 'bad_request' });
-  }
-  const { pathname } = url;
-
-  if(req.method === 'OPTIONS'){
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    });
-    return res.end();
-  }
-
-  try{
-    /* ---- Trang gốc: phục vụ luôn giao diện web KeyVault (đã gộp chung 1 file index.js)
-       Bấm vào link server sẽ hiện ra y hệt trang giao diện, không cần host riêng nữa. ---- */
-    if(pathname === '/' && req.method === 'GET'){
-      res.writeHead(200, {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-store'
-      });
-      return res.end(HTML_PAGE);
-    }
-
-    /* ---- Endpoint trạng thái server (JSON) — dùng để kiểm tra nhanh server còn sống,
-       cũng là endpoint được tool chống ngủ đông tự "ping" định kỳ (xem phần cuối file) ---- */
-    if(pathname === '/api/status' && req.method === 'GET'){
-      return sendJSON(res, 200, {
-        ok: true,
-        service: 'keyvault-server-proxy',
-        message: 'Server đang chạy — giao diện đã được gộp chung tại địa chỉ gốc "/".',
-        endpoints: ['/', '/api/state', '/api/verify', '/api/apps', '/api/logs']
-      });
-    }
-
-    /* ---- 1) Auto lưu / tải toàn bộ dữ liệu dashboard ---- */
-    if(pathname === '/api/state' && req.method === 'GET'){
-      return sendJSON(res, 200, db);
-    }
-    if(pathname === '/api/state' && req.method === 'POST'){
-      const body = await readJSONBody(req);
-      // chỉ ghi đè các trường thuộc dashboard, không đụng tới apiApps/verifyLogs
-      db.adminPassword = body.adminPassword ?? db.adminPassword;
-      db.loginHistory  = body.loginHistory  ?? db.loginHistory;
-      db.keysStore     = body.keysStore     ?? db.keysStore;
-      db.sellers        = body.sellers        ?? db.sellers;
-      db.blockedIPs     = body.blockedIPs     ?? db.blockedIPs;
-      db.scanState       = body.scanState       ?? db.scanState;
-      db.lastScanTime     = body.lastScanTime     ?? db.lastScanTime;
-      db.statsHidden        = typeof body.statsHidden === 'boolean' ? body.statsHidden : db.statsHidden;
-      saveDBDebounced();
-      return sendJSON(res, 200, { ok: true, savedAt: new Date().toISOString() });
-    }
-
-    /* ---- 2) API xác thực key công khai — app/tool bên ngoài gọi tới đây ---- */
-    if(pathname === '/api/verify' && (req.method === 'GET' || req.method === 'POST')){
-      let key, appId;
-      if(req.method === 'GET'){
-        key = url.searchParams.get('key');
-        appId = url.searchParams.get('app') || url.searchParams.get('app_id') || 'unknown-app';
-      } else {
-        const body = await readJSONBody(req);
-        key = body.key;
-        appId = body.app_id || body.appId || body.app || 'unknown-app';
-      }
-      appId = String(appId).trim().slice(0, 100) || 'unknown-app';
-
-      if(!key){
-        return sendJSON(res, 400, { valid: false, reason: 'missing_key' });
-      }
-
-      // 3) Tự động nhận diện app/tool đang gọi tới
-      const app = getOrRegisterApp(appId);
-      app.lastUsedAt = new Date().toISOString();
-      app.totalChecks = (app.totalChecks || 0) + 1;
-
-      // App chưa được admin cấp phép -> luôn từ chối, không tiết lộ key có tồn tại hay không
-      if(app.status !== 'allowed'){
-        const reason = app.status === 'denied' ? 'app_denied' : 'app_pending_approval';
-        logVerifyCall({ time: new Date().toISOString(), appId, key, valid: false, reason });
-        saveDBDebounced();
-        return sendJSON(res, 200, { valid: false, reason });
-      }
-
-      const found = findKeyEverywhere(key);
-      if(!found){
-        logVerifyCall({ time: new Date().toISOString(), appId, key, valid: false, reason: 'key_not_found' });
-        saveDBDebounced();
-        return sendJSON(res, 200, { valid: false, reason: 'key_not_found' });
-      }
-
-      const status = computeKeyStatus(found.key);
-      const valid = status !== 'banned' && status !== 'expired';
-      logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason: valid ? 'ok' : status });
-      saveDBDebounced();
-      return sendJSON(res, 200, {
-        valid,
-        status,
-        type: found.key.type || null,
-        expiresAt: found.key.expiresAt || null
-      });
-    }
-
-    /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
-    if(pathname === '/api/logs' && req.method === 'GET'){
-      return sendJSON(res, 200, db.verifyLogs || []);
-    }
-
-    /* ---- Quản lý danh sách app/tool được phép dùng server key (admin) ---- */
-    if(pathname === '/api/apps' && req.method === 'GET'){
-      return sendJSON(res, 200, db.apiApps || []);
-    }
-
-    const approveMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)\/approve$/);
-    if(approveMatch && req.method === 'POST'){
-      const app = (db.apiApps || []).find(a => a.id === approveMatch[1]);
-      if(!app) return sendJSON(res, 404, { error: 'not_found' });
-      app.status = 'allowed';
-      saveDBDebounced();
-      return sendJSON(res, 200, app);
-    }
-
-    const denyMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)\/deny$/);
-    if(denyMatch && req.method === 'POST'){
-      const app = (db.apiApps || []).find(a => a.id === denyMatch[1]);
-      if(!app) return sendJSON(res, 404, { error: 'not_found' });
-      app.status = 'denied';
-      saveDBDebounced();
-      return sendJSON(res, 200, app);
-    }
-
-    const removeMatch = pathname.match(/^\/api\/apps\/([a-f0-9]+)$/);
-    if(removeMatch && req.method === 'DELETE'){
-      db.apiApps = (db.apiApps || []).filter(a => a.id !== removeMatch[1]);
-      saveDBDebounced();
-      return sendJSON(res, 200, { ok: true });
-    }
-
-    return sendJSON(res, 404, { error: 'not_found' });
-  }catch(e){
-    console.error('[KeyVault] Lỗi xử lý request:', e);
-    return sendJSON(res, 500, { error: 'server_error', message: String((e && e.message) || e) });
-  }
-});
-
-server.listen(PORT, ()=>{
-  console.log(`✔ KeyVault server đang chạy tại http://localhost:${PORT}`);
-  console.log(`  Dữ liệu được lưu tại: ${DB_FILE}`);
-  console.log(`  Giao diện web: http://localhost:${PORT}/  (đã gộp chung vào index.js)`);
-  console.log(`  Link xác thực API key: http://localhost:${PORT}/api/verify?key=...&app=...`);
-  startAntiSleep();
-});
-
-/* ---------------- Chống ngủ đông trên gói miễn phí Render ----------------
-   Render gói Free sẽ tự "ngủ" (sleep) sau khoảng 15 phút KHÔNG có request nào
-   gọi tới server. Để hạn chế việc này, server tự gửi 1 request tới chính nó
-   mỗi 4 phút (dưới 15 phút) để luôn có lưu lượng request tới, giữ server "thức".
-
-   ⚠️ LƯU Ý QUAN TRỌNG: cơ chế tự ping này chỉ hoạt động khi tiến trình server
-   ĐANG chạy — nếu Render đã cho server ngủ trước khi cơ chế này kịp ping (ví dụ
-   server vừa khởi động lại, hoặc mất mạng tạm thời) thì sẽ không tự đánh thức
-   được. Để đảm bảo server chạy 24/7 chắc chắn hơn, bạn nên kết hợp thêm MỘT
-   trong các cách sau (miễn phí, làm bên ngoài Render):
-     1) UptimeRobot (uptimerobot.com) — tạo "HTTP(s) monitor" gọi tới:
-          https://<địa-chỉ-app-của-bạn>.onrender.com/api/status
-        mỗi 5 phút.
-     2) cron-job.org — tạo cron job GET tới cùng địa chỉ trên, mỗi 5 phút.
-   Hai dịch vụ trên gọi từ BÊN NGOÀI vào server nên đánh thức được server kể cả
-   khi server vừa mới ngủ, đảm bảo uptime 24/7 tốt hơn nhiều so với chỉ tự ping. */
-function startAntiSleep(){
-  const selfUrl = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || null;
-  if(!selfUrl){
-    console.log('  [Anti-sleep] Chưa xác định được địa chỉ public của server (biến RENDER_EXTERNAL_URL). Bỏ qua tự ping — vẫn nên cấu hình UptimeRobot/cron-job.org như ghi chú ở trên.');
-    return;
-  }
-  const target = selfUrl.replace(/\/+$/, '') + '/api/status';
-  console.log(`  [Anti-sleep] Sẽ tự ping ${target} mỗi 4 phút để chống ngủ đông.`);
-  setInterval(()=>{
-    try{
-      https.get(target, (r)=>{ r.resume(); }).on('error', (e)=>{
-        console.warn('[Anti-sleep] Ping thất bại (không nghiêm trọng, sẽ thử lại sau):', e.message);
-      });
-    }catch(e){ /* bỏ qua lỗi ping, không ảnh hưởng server chính */ }
-  }, 4 * 60 * 1000);
-}
-
-// Đảm bảo ghi dữ liệu lần cuối khi tắt server bằng Ctrl+C
-process.on('SIGINT', ()=>{ saveDBNow(); process.exit(0); });
-process.on('SIGTERM', ()=>{ saveDBNow(); process.exit(0); });
+  "      <button class=\"icon-btn\" title=\"Reset key về ban đầu\" data-act=\"reset\" data-id=\"${k.id}
