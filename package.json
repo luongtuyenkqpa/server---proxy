@@ -1,10 +1,12 @@
 {
   "name": "keyvault-server",
   "version": "1.0.0",
-  "description": "KeyVault - giao diện + backend gộp chung 1 file index.js",
+  "description": "KeyVault - Server + giao diện web gộp chung 1 file index.js",
   "main": "index.js",
-  "engines": { "node": ">=16" },
   "scripts": {
     "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
