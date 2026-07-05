@@ -3815,30 +3815,38 @@ const STORE_B64_CHUNKS = [
   'cHBlbmRDaGlsZChkb3QpOwogIH0KfQoKZnVuY3Rpb24gb3BlbkdrRmxvd01vZGFsKGxpbmspewogICQoJ2drRmxvd0dhbWVMYWJlbCcpLnRleHRDb250ZW50',
   'ID0gZ2tTZWxlY3RlZEdhbWUubmFtZSArICcgwrcgJyArIGZtdEdrRHVyYXRpb25QdWJsaWMoZ2tTZWxlY3RlZER1cmF0aW9uKTsKICAkKCdna1JvdW5kTGFi',
   'ZWwnKS50ZXh0Q29udGVudCA9IGBMxrDhu6N0ICR7Z2tDdXJyZW50Um91bmR9LyR7Z2tUb3RhbFJvdW5kc31gOwogICQoJ2J0bk9wZW5Ha0xpbmsnKS5ocmVm',
-  'ID0gbGluazsKICAkKCdidG5PcGVuR2tMaW5rJykudGV4dENvbnRlbnQgPSBgTeG7nyBsaW5rIHbGsOG7o3QgKGzGsOG7o3QgJHtna0N1cnJlbnRSb3VuZH0v',
-  'JHtna1RvdGFsUm91bmRzfSlgOwogICQoJ2drRmxvd0Vycm9yJykuY2xhc3NMaXN0LnJlbW92ZSgnc2hvdycpOwogIHJlbmRlckdrUHJvZ3Jlc3MoKTsKICAk',
-  'KCdna0Zsb3dNb2RhbEJnJykuY2xhc3NMaXN0LmFkZCgnc2hvdycpOwp9CiQoJ2J0bkNsb3NlR2tGbG93JykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCAo',
-  'KT0+ICQoJ2drRmxvd01vZGFsQmcnKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93JykpOwoKJCgnYnRuQ29uZmlybUdrU3RlcCcpLmFkZEV2ZW50TGlzdGVuZXIo',
-  'J2NsaWNrJywgYXN5bmMgKCk9PnsKICBjb25zdCBlcnJCb3ggPSAkKCdna0Zsb3dFcnJvcicpOwogIGVyckJveC5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7',
-  'CiAgY29uc3QgYnRuID0gJCgnYnRuQ29uZmlybUdrU3RlcCcpOwogIGJ0bi5kaXNhYmxlZCA9IHRydWU7IGJ0bi50ZXh0Q29udGVudCA9ICfEkGFuZyBraeG7',
-  'g20gdHJhLi4uJzsKICB0cnl7CiAgICBjb25zdCByZXMgPSBhd2FpdCBmZXRjaChBUElfQkFTRSArICcvYXBpL2dldGtleS9uZXh0JywgewogICAgICBtZXRo',
-  'b2Q6J1BPU1QnLCBoZWFkZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24vanNvbid9LAogICAgICBib2R5OiBKU09OLnN0cmluZ2lmeSh7IHNlc3Np',
-  'b25JZDogZ2tTZXNzaW9uSWQgfSkKICAgIH0pOwogICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcy5qc29uKCk7CiAgICBpZighcmVzLm9rIHx8ICFkYXRhLm9r',
-  'KXsKICAgICAgY29uc3QgbWFwID0geyBzZXNzaW9uX25vdF9mb3VuZDonUGhpw6puIMSRw6MgaOG6v3QgaOG6oW4sIHZ1aSBsw7JuZyBi4bqvdCDEkeG6p3Ug',
-  'bOG6oWknLCBnYW1lX25vdF9mb3VuZDonR2FtZSBraMO0bmcgdOG7k24gdOG6oWknLCBvdXRfb2Zfc3RvY2s6J8SQw6MgaOG6v3Qga2V5LCB2dWkgbMOybmcg',
-  'dGjhu60gbOG6oWkgc2F1JyB9OwogICAgICB0aHJvdyBuZXcgRXJyb3IobWFwW2RhdGEuZXJyb3JdIHx8ICdDw7MgbOG7l2kgeOG6o3kgcmEsIHZ1aSBsw7Ju',
-  'ZyB0aOG7rSBs4bqhaScpOwogICAgfQogICAgaWYoZGF0YS5kb25lKXsKICAgICAgJCgnZ2tGbG93TW9kYWxCZycpLmNsYXNzTGlzdC5yZW1vdmUoJ3Nob3cn',
-  'KTsKICAgICAgJCgnZ2tSZXN1bHRLZXlWYWx1ZScpLnRleHRDb250ZW50ID0gZGF0YS5rZXk7CiAgICAgICQoJ2drUmVzdWx0TW9kYWxCZycpLmNsYXNzTGlz',
-  'dC5hZGQoJ3Nob3cnKTsKICAgIH0gZWxzZSB7CiAgICAgIGdrQ3VycmVudFJvdW5kID0gZGF0YS5jdXJyZW50Um91bmQ7CiAgICAgIG9wZW5Ha0Zsb3dNb2Rh',
-  'bChkYXRhLmxpbmspOwogICAgfQogIH1jYXRjaChlKXsKICAgIGVyckJveC50ZXh0Q29udGVudCA9IGUubWVzc2FnZTsKICAgIGVyckJveC5jbGFzc0xpc3Qu',
-  'YWRkKCdzaG93Jyk7CiAgfWZpbmFsbHl7CiAgICBidG4uZGlzYWJsZWQgPSBmYWxzZTsgYnRuLnRleHRDb250ZW50ID0gJ1TDtGkgxJHDoyB2xrDhu6N0IGxp',
-  'bmsnOwogIH0KfSk7CgokKCdidG5DbG9zZUdrUmVzdWx0JykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCAoKT0+ICQoJ2drUmVzdWx0TW9kYWxCZycpLmNs',
-  'YXNzTGlzdC5yZW1vdmUoJ3Nob3cnKSk7CiQoJ2J0bkNvcHlHa1Jlc3VsdEtleScpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgKCk9PnsKICBjb25zdCB2',
-  'YWwgPSAkKCdna1Jlc3VsdEtleVZhbHVlJykudGV4dENvbnRlbnQ7CiAgbmF2aWdhdG9yLmNsaXBib2FyZC53cml0ZVRleHQodmFsKS50aGVuKCgpPT4gc2hv',
-  'd1RvYXN0KCfEkMOjIHNhbyBjaMOpcCBrZXknKSkuY2F0Y2goKCk9PiBzaG93VG9hc3QoJ0tow7RuZyBzYW8gY2jDqXAgxJHGsOG7o2MsIHZ1aSBsw7JuZyBj',
-  'b3B5IHRo4bunIGPDtG5nJykpOwp9KTsKCi8qIC0tLS0tLS0tLS0gS2jhu59pIMSR4buZbmcgJiB04buxIGzDoG0gbeG7m2kgc+G6o24gcGjhuqltIHRoZW8g',
-  'YWRtaW4gLS0tLS0tLS0tLSAqLwpsb2FkUHJvZHVjdHMoKTsKc2V0SW50ZXJ2YWwobG9hZFByb2R1Y3RzLCA4MDAwKTsgLy8gdOG7sSDEkeG7mW5nIGPhuq1w',
-  'IG5o4bqtdCBz4bqjbiBwaOG6qW0vdOG7k24ga2hvIHRoZW8gYWRtaW4gZ+G6p24gbmjGsCByZWFsLXRpbWUKPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPgoK',];
+  'ID0gbGluazsKICAkKCdidG5PcGVuR2tMaW5rJykudGV4dENvbnRlbnQgPSBgTeG7nyBs4bqhaSBsaW5rIHbGsOG7o3QgKGzGsOG7o3QgJHtna0N1cnJlbnRS',
+  'b3VuZH0vJHtna1RvdGFsUm91bmRzfSlgOwogICQoJ2drRmxvd0Vycm9yJykuY2xhc3NMaXN0LnJlbW92ZSgnc2hvdycpOwogIHJlbmRlckdrUHJvZ3Jlc3Mo',
+  'KTsKICAkKCdna0Zsb3dNb2RhbEJnJykuY2xhc3NMaXN0LmFkZCgnc2hvdycpOwogIC8vIFThu7EgxJHhu5luZyBt4bufIGxpbmsgdsaw4bujdCBuZ2F5IGto',
+  'aSBixrDhu5tjIHbDoG8gbMaw4bujdCBuw6B5IOKAlCBraMOhY2ggS0jDlE5HIGPhuqduIGLhuqVtIHRow6ptIG7DunQgbsOgbyDEkeG7gyAibeG7nyIgbGlu',
+  'ay4KICAvLyBO4bq/dSB0csOsbmggZHV54buHdCBjaOG6t24gcG9wdXAsIG7DunQgIk3hu58gbOG6oWkgbGluayB2xrDhu6N0IiBwaMOtYSB0csOqbiB24bqr',
+  'biBjaG8ga2jDoWNoIHThu7EgbeG7nyB0aOG7pyBjw7RuZy4KICBjb25zdCBvcGVuZWQgPSB3aW5kb3cub3BlbihsaW5rLCAnX2JsYW5rJywgJ25vb3BlbmVy',
+  'Jyk7CiAgaWYoIW9wZW5lZCl7CiAgICBzaG93VG9hc3QoJ1Ryw6xuaCBkdXnhu4d0IMSRw6MgY2jhurduIG3hu58gbGluayB04buxIMSR4buZbmcg4oCUIHZ1',
+  'aSBsw7JuZyBi4bqlbSBuw7p0ICJN4bufIGzhuqFpIGxpbmsgdsaw4bujdCIgYsOqbiBkxrDhu5tpJyk7CiAgfQp9CiQoJ2J0bkNsb3NlR2tGbG93JykuYWRk',
+  'RXZlbnRMaXN0ZW5lcignY2xpY2snLCAoKT0+ICQoJ2drRmxvd01vZGFsQmcnKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93JykpOwoKJCgnYnRuQ29uZmlybUdr',
+  'U3RlcCcpLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgYXN5bmMgKCk9PnsKICBjb25zdCBlcnJCb3ggPSAkKCdna0Zsb3dFcnJvcicpOwogIGVyckJveC5j',
+  'bGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7CiAgY29uc3QgYnRuID0gJCgnYnRuQ29uZmlybUdrU3RlcCcpOwogIGJ0bi5kaXNhYmxlZCA9IHRydWU7IGJ0bi50',
+  'ZXh0Q29udGVudCA9ICfEkGFuZyBraeG7g20gdHJhLi4uJzsKICB0cnl7CiAgICBjb25zdCByZXMgPSBhd2FpdCBmZXRjaChBUElfQkFTRSArICcvYXBpL2dl',
+  'dGtleS9uZXh0JywgewogICAgICBtZXRob2Q6J1BPU1QnLCBoZWFkZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24vanNvbid9LAogICAgICBib2R5',
+  'OiBKU09OLnN0cmluZ2lmeSh7IHNlc3Npb25JZDogZ2tTZXNzaW9uSWQgfSkKICAgIH0pOwogICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlcy5qc29uKCk7CiAg',
+  'ICBpZighcmVzLm9rIHx8ICFkYXRhLm9rKXsKICAgICAgY29uc3QgbWFwID0gewogICAgICAgIHNlc3Npb25fbm90X2ZvdW5kOidQaGnDqm4gxJHDoyBo4bq/',
+  'dCBo4bqhbiwgdnVpIGzDsm5nIGLhuq90IMSR4bqndSBs4bqhaScsCiAgICAgICAgZ2FtZV9ub3RfZm91bmQ6J0dhbWUga2jDtG5nIHThu5NuIHThuqFpJywK',
+  'ICAgICAgICBvdXRfb2Zfc3RvY2s6J8SQw6MgaOG6v3Qga2V5LCB2dWkgbMOybmcgdGjhu60gbOG6oWkgc2F1JywKICAgICAgICBub3RfY29uZmlybWVkX3ll',
+  'dDonQuG6oW4gQ0jGr0Egdsaw4bujdCBsaW5rIOG7nyBsxrDhu6N0IG7DoHkg4oCUIHZ1aSBsw7JuZyBt4bufIGxpbmsgdsOgIGhvw6BuIHRow6BuaCB0cmFu',
+  'ZyDEkcOtY2ggdHLGsOG7m2Mga2hpIGLhuqVtICJUw7RpIMSRw6Mgdsaw4bujdCBsaW5rIicKICAgICAgfTsKICAgICAgdGhyb3cgbmV3IEVycm9yKG1hcFtk',
+  'YXRhLmVycm9yXSB8fCAnQ8OzIGzhu5dpIHjhuqN5IHJhLCB2dWkgbMOybmcgdGjhu60gbOG6oWknKTsKICAgIH0KICAgIGlmKGRhdGEuZG9uZSl7CiAgICAg',
+  'ICQoJ2drRmxvd01vZGFsQmcnKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93Jyk7CiAgICAgICQoJ2drUmVzdWx0S2V5VmFsdWUnKS50ZXh0Q29udGVudCA9IGRh',
+  'dGEua2V5OwogICAgICAkKCdna1Jlc3VsdE1vZGFsQmcnKS5jbGFzc0xpc3QuYWRkKCdzaG93Jyk7CiAgICB9IGVsc2UgewogICAgICBna0N1cnJlbnRSb3Vu',
+  'ZCA9IGRhdGEuY3VycmVudFJvdW5kOwogICAgICBvcGVuR2tGbG93TW9kYWwoZGF0YS5saW5rKTsKICAgIH0KICB9Y2F0Y2goZSl7CiAgICBlcnJCb3gudGV4',
+  'dENvbnRlbnQgPSBlLm1lc3NhZ2U7CiAgICBlcnJCb3guY2xhc3NMaXN0LmFkZCgnc2hvdycpOwogIH1maW5hbGx5ewogICAgYnRuLmRpc2FibGVkID0gZmFs',
+  'c2U7IGJ0bi50ZXh0Q29udGVudCA9ICdUw7RpIMSRw6Mgdsaw4bujdCBsaW5rJzsKICB9Cn0pOwoKJCgnYnRuQ2xvc2VHa1Jlc3VsdCcpLmFkZEV2ZW50TGlz',
+  'dGVuZXIoJ2NsaWNrJywgKCk9PiAkKCdna1Jlc3VsdE1vZGFsQmcnKS5jbGFzc0xpc3QucmVtb3ZlKCdzaG93JykpOwokKCdidG5Db3B5R2tSZXN1bHRLZXkn',
+  'KS5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpPT57CiAgY29uc3QgdmFsID0gJCgnZ2tSZXN1bHRLZXlWYWx1ZScpLnRleHRDb250ZW50OwogIG5hdmln',
+  'YXRvci5jbGlwYm9hcmQud3JpdGVUZXh0KHZhbCkudGhlbigoKT0+IHNob3dUb2FzdCgnxJDDoyBzYW8gY2jDqXAga2V5JykpLmNhdGNoKCgpPT4gc2hvd1Rv',
+  'YXN0KCdLaMO0bmcgc2FvIGNow6lwIMSRxrDhu6NjLCB2dWkgbMOybmcgY29weSB0aOG7pyBjw7RuZycpKTsKfSk7CgovKiAtLS0tLS0tLS0tIEto4bufaSDE',
+  'keG7mW5nICYgdOG7sSBsw6BtIG3hu5tpIHPhuqNuIHBo4bqpbSB0aGVvIGFkbWluIC0tLS0tLS0tLS0gKi8KbG9hZFByb2R1Y3RzKCk7CnNldEludGVydmFs',
+  'KGxvYWRQcm9kdWN0cywgODAwMCk7IC8vIHThu7EgxJHhu5luZyBj4bqtcCBuaOG6rXQgc+G6o24gcGjhuqltL3Thu5NuIGtobyB0aGVvIGFkbWluIGfhuqdu',
+  'IG5oxrAgcmVhbC10aW1lCjwvc2NyaXB0Pgo8L2JvZHk+CjwvaHRtbD4KCg==',];
 const STORE_PAGE = Buffer.from(STORE_B64_CHUNKS.join(''), 'base64').toString('utf8');
 
 const HTML_PAGE = HTML_LINES.join(String.fromCharCode(10));
@@ -4480,6 +4488,7 @@ const server = http.createServer(async (req, res)=>{
         durationId: duration.id,
         rounds: duration.rounds || 1,
         currentRound: 1,
+        roundConfirmed: {}, // { [round]: true } — chỉ được đánh dấu true bởi /api/getkey/confirm (khi link đích thật sự được mở)
         done: false,
         key: null,
         createdAt: new Date().toISOString()
@@ -4506,6 +4515,15 @@ const server = http.createServer(async (req, res)=>{
       const session = (db.getKeySessions || {})[body.sessionId];
       if(!session) return sendJSON(res, 404, { ok:false, error: 'session_not_found' });
       if(session.done) return sendJSON(res, 200, { ok:true, done:true, key: session.key });
+
+      /* ---- Bắt buộc phải thật sự mở link đích (server tự ghi nhận qua /api/getkey/confirm)
+         mới được tính là đã vượt xong lượt hiện tại. Nếu khách bấm "Tôi đã vượt link" mà
+         chưa từng mở link (roundConfirmed chưa được đánh dấu), từ chối luôn, không cho qua
+         lượt tiếp theo và không giao key — tránh trường hợp không cần vượt link vẫn có key. */
+      session.roundConfirmed = session.roundConfirmed || {};
+      if(!session.roundConfirmed[session.currentRound]){
+        return sendJSON(res, 400, { ok:false, error: 'not_confirmed_yet' });
+      }
 
       if(session.currentRound < session.rounds){
         session.currentRound += 1;
@@ -4544,11 +4562,24 @@ const server = http.createServer(async (req, res)=>{
     }
 
     /* ---- Trang xác nhận vượt link: đây là URL mà link rút gọn LAYMA.NET trỏ tới sau
-       khi khách hoàn thành các bước vượt link. Trả về 1 trang HTML đơn giản tự đóng/
-       thông báo, khách quay lại tab GetKey ban đầu để bấm "Tiếp tục". ---- */
+       khi khách hoàn thành các bước vượt link. Đây là nơi DUY NHẤT đánh dấu 1 lượt là
+       "đã vượt" (roundConfirmed) — chỉ khi trình duyệt của khách thật sự tải trang này
+       (tức đã đi hết link rút gọn) thì lượt đó mới được tính hợp lệ. ---- */
     if(pathname === '/api/getkey/confirm' && req.method === 'GET'){
+      const sessionId = url.searchParams.get('session');
+      const round = parseInt(url.searchParams.get('round')) || 0;
+      const session = (db.getKeySessions || {})[sessionId];
+      let bodyHtml;
+      if(session && round === session.currentRound && !session.done){
+        session.roundConfirmed = session.roundConfirmed || {};
+        session.roundConfirmed[round] = true;
+        saveDBDebounced();
+        bodyHtml = '<h2>✔ Đã xác nhận vượt link thành công</h2><p>Vui lòng quay lại tab GetKey ban đầu và bấm "Tôi đã vượt link" để tiếp tục.</p>';
+      } else {
+        bodyHtml = '<h2>⚠ Link không hợp lệ hoặc đã hết hạn</h2><p>Vui lòng quay lại trang GetKey và thử lại từ đầu.</p>';
+      }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end('<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Đã xác nhận vượt link</title></head><body style="font-family:sans-serif; text-align:center; padding:60px 20px;"><h2>✔ Đã xác nhận vượt link thành công</h2><p>Vui lòng quay lại tab GetKey ban đầu và bấm "Tiếp tục" để nhận bước kế tiếp hoặc nhận key.</p></body></html>');
+      return res.end('<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Đã xác nhận vượt link</title></head><body style="font-family:sans-serif; text-align:center; padding:60px 20px;">' + bodyHtml + '</body></html>');
     }
 
     /* ---- Admin: danh sách toàn bộ game GetKey (kể cả đang ẩn) ---- */
