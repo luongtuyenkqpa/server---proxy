@@ -655,6 +655,7 @@ const HTML_LINES = [
   "    <button class=\"tab-btn\" data-page=\"apikey\" data-admin-only=\"1\">API Key Server</button>",
   "    <button class=\"tab-btn\" data-page=\"products\" data-admin-only=\"1\">Sản phẩm &amp; Mã giảm giá</button>",
   "    <button class=\"tab-btn\" data-page=\"getkey\" data-admin-only=\"1\">GetKey</button>",
+  "    <button class=\"tab-btn\" data-page=\"codevault\" data-admin-only=\"1\">Nạp code</button>",
   "  </nav>",
   "</header>",
   "",
@@ -1350,6 +1351,59 @@ const HTML_LINES = [
   "    </div>",
   "  </div>",
   "",
+  "  <!-- ============ PAGE: NẠP CODE (LƯU TRỮ CODE GỐC PY / JAVA / JS...) ============ -->",
+  "  <div id=\"page-codevault\" style=\"display:none;\">",
+  "    <div class=\"sec-note\">",
+  "      Trang <b>Nạp code</b> dùng để <b>lưu trữ</b> code gốc của bạn (Python, Java, JavaScript hoặc ngôn ngữ khác) ngay trên server, giống một kho lưu trữ/sao lưu riêng tư. Trang này <b>chỉ lưu lại và cho phép xem/tải lại</b> — hệ thống <b>không tự động chạy, không tự động chèn hay tải code này xuống bất kỳ ứng dụng nào khác</b>.",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:20px;\">",
+  "      <h2 id=\"cvFormTitle\">Thêm đoạn code mới</h2>",
+  "      <p class=\"sub\">Dán code trực tiếp vào ô bên dưới, hoặc chọn file từ máy để tự động điền.</p>",
+  "",
+  "      <label>Tên đoạn code</label>",
+  "      <input type=\"text\" id=\"cvName\" placeholder=\"VD: Code đăng nhập key\" maxlength=\"100\">",
+  "",
+  "      <div class=\"row2\">",
+  "        <div>",
+  "          <label>Ngôn ngữ</label>",
+  "          <select id=\"cvLanguage\">",
+  "            <option value=\"python\">Python (.py)</option>",
+  "            <option value=\"java\">Java (.java)</option>",
+  "            <option value=\"javascript\" selected>JavaScript (.js)</option>",
+  "            <option value=\"other\">Khác</option>",
+  "          </select>",
+  "        </div>",
+  "        <div>",
+  "          <label>Chọn file từ máy (tuỳ chọn)</label>",
+  "          <input type=\"file\" id=\"cvFileInput\" accept=\".py,.java,.js,.jsx,.ts,.txt,.json,.xml,.gradle,.kt,.kts\">",
+  "        </div>",
+  "      </div>",
+  "",
+  "      <label style=\"margin-top:14px;\">Nội dung code</label>",
+  "      <textarea id=\"cvCode\" rows=\"14\" placeholder=\"Dán code gốc vào đây...\" style=\"font-family:'Courier New',monospace; font-size:12.5px; white-space:pre; overflow-wrap:normal; overflow-x:auto;\"></textarea>",
+  "      <p class=\"preview-note\" id=\"cvSizeNote\" style=\"margin-top:6px;\">0 KB / tối đa 3 MB mỗi đoạn code</p>",
+  "",
+  "      <button class=\"btn\" id=\"btnSaveCodeSnippet\" style=\"margin-top:16px;\">Lưu code lên server</button>",
+  "      <button class=\"btn btn-ghost\" id=\"btnCancelEditCodeSnippet\" style=\"margin-top:10px; display:none;\">Huỷ chỉnh sửa</button>",
+  "    </div>",
+  "",
+  "    <div class=\"panel\" style=\"margin-top:24px;\">",
+  "      <div class=\"panel-head\">",
+  "        <div>",
+  "          <h2>Code đã lưu trên server</h2>",
+  "          <p class=\"sub\">Danh sách code gốc đã nạp — chỉ tài khoản đăng nhập được vào trang quản trị mới xem/tải được.</p>",
+  "        </div>",
+  "        <button class=\"btn btn-ghost btn-inline\" id=\"btnRefreshCodeSnippets\">Làm mới</button>",
+  "      </div>",
+  "      <div id=\"cvList\" style=\"margin-top:14px; display:grid; gap:10px;\"></div>",
+  "      <div class=\"empty\" id=\"cvEmpty\" style=\"display:none;\">",
+  "        <div class=\"big\">Chưa có code nào được lưu</div>",
+  "        Thêm ở form phía trên để bắt đầu lưu trữ code gốc.",
+  "      </div>",
+  "    </div>",
+  "  </div>",
+  "",
   "</main>",
   "",
   "<footer>KeyVault — Hệ thống bảo mật · an toàn · chất lượng. Dữ liệu được tự động mã hoá &amp; lưu trữ trên máy chủ.</footer>",
@@ -1516,6 +1570,19 @@ const HTML_LINES = [
   "  </div>",
   "</div>",
   "",
+  "<div class=\"modal-bg\" id=\"cvViewModalBg\">",
+  "  <div class=\"modal\" style=\"max-width:760px;\">",
+  "    <h3 id=\"cvViewTitle\">Xem code</h3>",
+  "    <p class=\"sub\" id=\"cvViewMeta\" style=\"margin-top:-6px;\"></p>",
+  "    <pre id=\"cvViewContent\" style=\"max-height:440px; overflow:auto; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:14px; font-size:12.5px; line-height:1.5; white-space:pre; margin-top:10px;\"></pre>",
+  "    <div class=\"modal-actions\">",
+  "      <button class=\"btn btn-ghost\" id=\"cvViewClose\">Đóng</button>",
+  "      <button class=\"btn btn-ghost\" id=\"btnCvCopy\">Sao chép</button>",
+  "      <button class=\"btn\" id=\"btnCvDownload\">Tải file</button>",
+  "    </div>",
+  "  </div>",
+  "</div>",
+  "",
   "<script>",
   "/* ============ LOGIN LOGIC ============ */",
   "const DEMO_USER = 'Adminn';",
@@ -1664,6 +1731,7 @@ const HTML_LINES = [
   "    document.getElementById('page-apikey').style.display = 'none';",
   "    document.getElementById('page-products').style.display = 'none';",
   "    document.getElementById('page-getkey').style.display = 'none';",
+  "    document.getElementById('page-codevault').style.display = 'none';",
   "    // seller luôn dùng thời gian hiện tại khi tạo key",
   "    document.getElementById('createdAtNow').checked = true;",
   "    document.getElementById('createdAtCustomField').style.display = 'none';",
@@ -1832,6 +1900,7 @@ const HTML_LINES = [
   "    document.getElementById('page-apikey').style.display = currentPage==='apikey' ? 'block' : 'none';",
   "    document.getElementById('page-products').style.display = currentPage==='products' ? 'block' : 'none';",
   "    document.getElementById('page-getkey').style.display = currentPage==='getkey' ? 'block' : 'none';",
+  "    document.getElementById('page-codevault').style.display = currentPage==='codevault' ? 'block' : 'none';",
   "    if(currentPage==='stats') renderStatsPage();",
   "    if(currentPage==='security') renderSecurityPage();",
   "    if(currentPage==='sellers') renderSellersPage();",
@@ -1839,6 +1908,7 @@ const HTML_LINES = [
   "    if(currentPage==='apikey') renderApiKeyPage();",
   "    if(currentPage==='products'){ renderProductsPage(); renderProductGroupsPage(); }",
   "    if(currentPage==='getkey') renderGetKeyPage();",
+  "    if(currentPage==='codevault') renderCodeVaultPage();",
   "  });",
   "});",
   "",
@@ -3055,6 +3125,7 @@ const HTML_LINES = [
   "  if(currentPage==='apikey') renderApiKeyPage();",
   "  if(currentPage==='products'){ renderProductsPage(); renderProductGroupsPage(); }",
   "  if(currentPage==='getkey') renderGetKeyPage();",
+  "  if(currentPage==='codevault') renderCodeVaultPage();",
   "}",
   "",
   "setInterval(()=> saveStateToServer(false), 4000); // tự lưu định kỳ, chỉ gửi khi có thay đổi thật",
@@ -3844,6 +3915,193 @@ const HTML_LINES = [
   "function renderGetKeyPage(){",
   "  renderGkDurationList();",
   "  fetchGetKeyGames();",
+  "}",
+  "",
+  "/* ============ NẠP CODE — CHỈ LƯU TRỮ CODE GỐC TRÊN SERVER (KHÔNG TỰ CHẠY / KHÔNG TỰ TẢI VÀO APP KHÁC) ============ */",
+  "let codeSnippets = [];",
+  "let editingCodeSnippetId = null;",
+  "let cvViewingSnippet = null;",
+  "const CV_MAX_BYTES = 3 * 1024 * 1024; // 3MB mỗi đoạn code — khớp giới hạn phía server",
+  "const CV_EXT_LANG = { py:'python', java:'java', js:'javascript', jsx:'javascript', ts:'javascript', kt:'java', kts:'java', gradle:'java' };",
+  "",
+  "function cvBytesOf(str){ return new Blob([str||'']).size; }",
+  "function cvFormatSize(bytes){",
+  "  if(bytes < 1024) return bytes + ' B';",
+  "  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';",
+  "  return (bytes/(1024*1024)).toFixed(2) + ' MB';",
+  "}",
+  "function cvLangLabel(lang){",
+  "  return { python:'Python', java:'Java', javascript:'JavaScript', other:'Khác' }[lang] || lang;",
+  "}",
+  "function cvUpdateSizeNote(){",
+  "  const size = cvBytesOf(document.getElementById('cvCode').value);",
+  "  const note = document.getElementById('cvSizeNote');",
+  "  note.textContent = cvFormatSize(size) + ' / tối đa ' + cvFormatSize(CV_MAX_BYTES) + ' mỗi đoạn code';",
+  "  note.style.color = size > CV_MAX_BYTES ? '#e5484d' : '';",
+  "}",
+  "document.getElementById('cvCode').addEventListener('input', cvUpdateSizeNote);",
+  "",
+  "document.getElementById('cvFileInput').addEventListener('change', (e)=>{",
+  "  const file = e.target.files[0];",
+  "  if(!file) return;",
+  "  if(file.size > CV_MAX_BYTES){ showToast('File quá lớn — tối đa ' + cvFormatSize(CV_MAX_BYTES)); e.target.value=''; return; }",
+  "  const reader = new FileReader();",
+  "  reader.onload = ()=>{",
+  "    document.getElementById('cvCode').value = String(reader.result || '');",
+  "    cvUpdateSizeNote();",
+  "    if(!document.getElementById('cvName').value.trim()){",
+  "      document.getElementById('cvName').value = file.name;",
+  "    }",
+  "    const ext = (file.name.split('.').pop() || '').toLowerCase();",
+  "    if(CV_EXT_LANG[ext]) document.getElementById('cvLanguage').value = CV_EXT_LANG[ext];",
+  "  };",
+  "  reader.onerror = ()=> showToast('Không đọc được file này');",
+  "  reader.readAsText(file);",
+  "});",
+  "",
+  "async function fetchCodeSnippets(){",
+  "  try{",
+  "    const res = await fetch(`${API_BASE}/api/admin/code-snippets`, {cache:'no-store'});",
+  "    codeSnippets = await res.json();",
+  "  }catch(e){",
+  "    codeSnippets = [];",
+  "  }",
+  "  renderCodeSnippetList();",
+  "}",
+  "",
+  "function renderCodeSnippetList(){",
+  "  const list = document.getElementById('cvList');",
+  "  const empty = document.getElementById('cvEmpty');",
+  "  list.innerHTML = '';",
+  "  empty.style.display = codeSnippets.length ? 'none' : 'block';",
+  "  codeSnippets.forEach(s=>{",
+  "    const row = document.createElement('div');",
+  "    row.className = 'panel';",
+  "    row.style.cssText = 'padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;';",
+  "    const left = document.createElement('div');",
+  "    const title = document.createElement('div');",
+  "    title.style.cssText = 'font-weight:600; font-size:14px;';",
+  "    title.textContent = s.name;",
+  "    const meta = document.createElement('div');",
+  "    meta.className = 'sub';",
+  "    meta.style.marginTop = '4px';",
+  "    meta.textContent = cvLangLabel(s.language) + ' · ' + cvFormatSize(s.sizeBytes||0) + ' · Cập nhật ' + new Date(s.updatedAt || s.createdAt).toLocaleString('vi-VN');",
+  "    left.appendChild(title); left.appendChild(meta);",
+  "    const actions = document.createElement('div');",
+  "    actions.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';",
+  "    const btnView = document.createElement('button');",
+  "    btnView.className = 'btn btn-ghost btn-inline'; btnView.textContent = 'Xem'; btnView.dataset.act='viewcv'; btnView.dataset.id=s.id;",
+  "    const btnEdit = document.createElement('button');",
+  "    btnEdit.className = 'btn btn-ghost btn-inline'; btnEdit.textContent = 'Sửa'; btnEdit.dataset.act='editcv'; btnEdit.dataset.id=s.id;",
+  "    const btnDel = document.createElement('button');",
+  "    btnDel.className = 'btn btn-ghost btn-inline'; btnDel.textContent = 'Xoá'; btnDel.dataset.act='delcv'; btnDel.dataset.id=s.id;",
+  "    actions.appendChild(btnView); actions.appendChild(btnEdit); actions.appendChild(btnDel);",
+  "    row.appendChild(left); row.appendChild(actions);",
+  "    list.appendChild(row);",
+  "  });",
+  "}",
+  "",
+  "document.getElementById('cvList').addEventListener('click', async (e)=>{",
+  "  const btn = e.target.closest('button[data-act]');",
+  "  if(!btn) return;",
+  "  const id = btn.dataset.id;",
+  "  const act = btn.dataset.act;",
+  "  if(act==='delcv'){",
+  "    const s = codeSnippets.find(x=>x.id===id);",
+  "    if(!s) return;",
+  "    if(!confirm('Xoá code \"'+s.name+'\"? Không thể hoàn tác.')) return;",
+  "    try{",
+  "      await fetch(`${API_BASE}/api/admin/code-snippets/${id}`, {method:'DELETE'});",
+  "      showToast('Đã xoá code');",
+  "    }catch(e){ showToast('Xoá thất bại — kiểm tra kết nối server'); }",
+  "    fetchCodeSnippets();",
+  "  } else if(act==='viewcv' || act==='editcv'){",
+  "    try{",
+  "      const res = await fetch(`${API_BASE}/api/admin/code-snippets/${id}`, {cache:'no-store'});",
+  "      if(!res.ok){ showToast('Không tải được code này'); return; }",
+  "      const full = await res.json();",
+  "      if(act==='viewcv'){",
+  "        cvOpenViewModal(full);",
+  "      } else {",
+  "        editingCodeSnippetId = full.id;",
+  "        document.getElementById('cvFormTitle').textContent = 'Chỉnh sửa code';",
+  "        document.getElementById('cvName').value = full.name;",
+  "        document.getElementById('cvLanguage').value = full.language;",
+  "        document.getElementById('cvCode').value = full.code;",
+  "        cvUpdateSizeNote();",
+  "        document.getElementById('btnCancelEditCodeSnippet').style.display = '';",
+  "        window.scrollTo({top:0, behavior:'smooth'});",
+  "      }",
+  "    }catch(e){ showToast('Không tải được code này'); }",
+  "  }",
+  "});",
+  "",
+  "function cvOpenViewModal(snippet){",
+  "  cvViewingSnippet = snippet;",
+  "  document.getElementById('cvViewTitle').textContent = snippet.name;",
+  "  document.getElementById('cvViewMeta').textContent = cvLangLabel(snippet.language) + ' · ' + cvFormatSize(cvBytesOf(snippet.code));",
+  "  document.getElementById('cvViewContent').textContent = snippet.code;",
+  "  document.getElementById('cvViewModalBg').classList.add('show');",
+  "}",
+  "document.getElementById('cvViewClose').addEventListener('click', ()=> document.getElementById('cvViewModalBg').classList.remove('show'));",
+  "document.getElementById('btnCvCopy').addEventListener('click', async ()=>{",
+  "  if(!cvViewingSnippet) return;",
+  "  try{",
+  "    await navigator.clipboard.writeText(cvViewingSnippet.code);",
+  "    showToast('Đã sao chép vào clipboard');",
+  "  }catch(e){ showToast('Không sao chép được — trình duyệt chặn clipboard'); }",
+  "});",
+  "document.getElementById('btnCvDownload').addEventListener('click', ()=>{",
+  "  if(!cvViewingSnippet) return;",
+  "  const extMap = { python:'py', java:'java', javascript:'js', other:'txt' };",
+  "  const ext = extMap[cvViewingSnippet.language] || 'txt';",
+  "  const blob = new Blob([cvViewingSnippet.code], {type:'text/plain'});",
+  "  const a = document.createElement('a');",
+  "  a.href = URL.createObjectURL(blob);",
+  "  a.download = (cvViewingSnippet.name || 'code').replace(/[^a-zA-Z0-9_\\-\\. ]/g,'_') + '.' + ext;",
+  "  document.body.appendChild(a); a.click(); a.remove();",
+  "});",
+  "",
+  "document.getElementById('btnCancelEditCodeSnippet').addEventListener('click', ()=>{",
+  "  editingCodeSnippetId = null;",
+  "  document.getElementById('cvFormTitle').textContent = 'Thêm đoạn code mới';",
+  "  document.getElementById('cvName').value = '';",
+  "  document.getElementById('cvCode').value = '';",
+  "  cvUpdateSizeNote();",
+  "  document.getElementById('btnCancelEditCodeSnippet').style.display = 'none';",
+  "});",
+  "",
+  "document.getElementById('btnSaveCodeSnippet').addEventListener('click', async ()=>{",
+  "  const name = document.getElementById('cvName').value.trim();",
+  "  const language = document.getElementById('cvLanguage').value;",
+  "  const code = document.getElementById('cvCode').value;",
+  "  if(!name){ showToast('Vui lòng nhập tên đoạn code'); return; }",
+  "  if(!code.trim()){ showToast('Vui lòng nhập hoặc chọn file code'); return; }",
+  "  if(cvBytesOf(code) > CV_MAX_BYTES){ showToast('Code vượt quá ' + cvFormatSize(CV_MAX_BYTES) + ' — hãy chia nhỏ hoặc rút gọn'); return; }",
+  "  try{",
+  "    const res = await fetch(`${API_BASE}/api/admin/code-snippets`, {",
+  "      method:'POST',",
+  "      headers:{'Content-Type':'application/json'},",
+  "      body: JSON.stringify({ id: editingCodeSnippetId || undefined, name, language, code })",
+  "    });",
+  "    if(!res.ok){",
+  "      const err = await res.json().catch(()=>({}));",
+  "      showToast(err.error === 'too_large' ? 'Code vượt quá giới hạn kích thước cho phép' : 'Lưu thất bại — kiểm tra kết nối tới server backend');",
+  "      return;",
+  "    }",
+  "    showToast(editingCodeSnippetId ? 'Đã cập nhật code' : 'Đã lưu code lên server');",
+  "    document.getElementById('btnCancelEditCodeSnippet').click();",
+  "    fetchCodeSnippets();",
+  "  }catch(e){",
+  "    showToast('Lưu thất bại — kiểm tra kết nối tới server backend');",
+  "  }",
+  "});",
+  "",
+  "document.getElementById('btnRefreshCodeSnippets').addEventListener('click', fetchCodeSnippets);",
+  "",
+  "function renderCodeVaultPage(){",
+  "  cvUpdateSizeNote();",
+  "  fetchCodeSnippets();",
   "}",
   "</script>",
   "</body>",
@@ -5432,7 +5690,9 @@ function defaultState(){
     },
     topupRequests: [], // { id, customerId, username, amount, method, status:'pending'|'approved'|'rejected'|'expired', createdAt, expiresAt, note, matchedTransaction }
     getKeyGames: [],    // { id, name, logo, keyPrefix, active, createdAt, durations: [{ id, label, unit, amount, rounds }] }
-    getKeySessions: {}  // { sessionId: { gameId, durationId, rounds, currentRound, done, key, createdAt, ip } }
+    getKeySessions: {}, // { sessionId: { gameId, durationId, rounds, currentRound, done, key, createdAt, ip } }
+    productGroups: [],  // { id, name, logo, active, createdAt, plans: [{ id, label, unit, amount, price, keyPrefix, maxDevices }] }
+    codeSnippets: []    // { id, name, language, code, sizeBytes, createdAt, updatedAt } — CHỈ lưu trữ, không thực thi
   };
 }
 
@@ -5820,6 +6080,13 @@ function findGetKeyDuration(game, durationId){
   return (game.durations || []).find(d => d.id === durationId) || null;
 }
 
+/* ---------------- Nạp code (Code Vault) — CHỈ LƯU TRỮ code gốc trên server ----------------
+   Đây thuần tuý là kho lưu trữ văn bản (giống ghi chú/backup): server KHÔNG chạy, KHÔNG
+   biên dịch, KHÔNG eval và KHÔNG tự động tải/chèn code này vào bất kỳ ứng dụng nào khác.
+   Giới hạn kích thước + whitelist ngôn ngữ để tránh phình db.json hoặc dữ liệu rác. */
+const CV_MAX_BYTES = 3 * 1024 * 1024; // 3MB mỗi đoạn code
+const CV_ALLOWED_LANGS = ['python', 'java', 'javascript', 'other'];
+
 /* ---------------- Router ---------------- */
 const server = http.createServer(async (req, res)=>{
   let url;
@@ -5876,7 +6143,7 @@ const server = http.createServer(async (req, res)=>{
         ok: true,
         service: 'keyvault-server-proxy',
         message: 'Server đang chạy — trang bán key tại "/", dashboard quản trị tại "/admin".',
-        endpoints: ['/', '/admin', '/api/state', '/api/verify', '/api/products', '/api/auth/register', '/api/auth/login', '/api/auth/me', '/api/auth/history', '/api/customer/keys', '/api/topup-request', '/api/sepay-webhook', '/api/admin/customers', '/api/admin/topup-requests', '/api/checkout', '/api/apps', '/api/logs', '/api/getkey/games', '/api/getkey/start', '/api/getkey/next', '/api/admin/getkey/games', '/api/admin/security-scan', '/api/product-groups', '/api/admin/product-groups', '/api/checkout-group']
+        endpoints: ['/', '/admin', '/api/state', '/api/verify', '/api/products', '/api/auth/register', '/api/auth/login', '/api/auth/me', '/api/auth/history', '/api/customer/keys', '/api/topup-request', '/api/sepay-webhook', '/api/admin/customers', '/api/admin/topup-requests', '/api/checkout', '/api/apps', '/api/logs', '/api/getkey/games', '/api/getkey/start', '/api/getkey/next', '/api/admin/getkey/games', '/api/admin/security-scan', '/api/product-groups', '/api/admin/product-groups', '/api/checkout-group', '/api/admin/code-snippets']
       });
     }
 
@@ -6757,6 +7024,74 @@ const server = http.createServer(async (req, res)=>{
     const pgDeleteMatch = pathname.match(/^\/api\/admin\/product-groups\/([a-f0-9]+)$/);
     if(pgDeleteMatch && req.method === 'DELETE'){
       db.productGroups = (db.productGroups || []).filter(g => g.id !== pgDeleteMatch[1]);
+      saveDBNow();
+      return sendJSON(res, 200, { ok:true });
+    }
+
+    /* ---- Admin: danh sách code đã lưu (chỉ metadata, KHÔNG kèm nội dung để danh sách nhẹ) ---- */
+    if(pathname === '/api/admin/code-snippets' && req.method === 'GET'){
+      const list = (db.codeSnippets || []).map(s => ({
+        id: s.id, name: s.name, language: s.language, sizeBytes: s.sizeBytes, createdAt: s.createdAt, updatedAt: s.updatedAt
+      }));
+      return sendJSON(res, 200, list);
+    }
+
+    /* ---- Admin: lưu (tạo mới hoặc cập nhật) 1 đoạn code — chỉ ghi vào db.json, không thực thi ---- */
+    if(pathname === '/api/admin/code-snippets' && req.method === 'POST'){
+      const ip = getClientIP(req);
+      if(isRateLimited('code-snippet-save', ip, 30, 60 * 1000)){
+        return sendJSON(res, 429, { ok:false, error: 'rate_limited', message: 'Bạn đang lưu code quá nhanh, vui lòng thử lại sau.' });
+      }
+      let body;
+      try{ body = await readJSONBody(req); }
+      catch(e){ return sendJSON(res, 413, { ok:false, error: 'too_large', message: 'Dữ liệu gửi lên quá lớn.' }); }
+      db.codeSnippets = db.codeSnippets || [];
+      const name = String(body.name || '').trim().slice(0, 100);
+      const language = CV_ALLOWED_LANGS.includes(body.language) ? body.language : 'other';
+      const code = typeof body.code === 'string' ? body.code : '';
+      if(!name || !code){
+        return sendJSON(res, 400, { ok:false, error: 'missing_fields' });
+      }
+      const sizeBytes = Buffer.byteLength(code, 'utf8');
+      if(sizeBytes > CV_MAX_BYTES){
+        return sendJSON(res, 413, { ok:false, error: 'too_large', message: 'Code vượt quá 3MB — hãy chia nhỏ hoặc rút gọn.' });
+      }
+
+      if(body.id){
+        const snippet = db.codeSnippets.find(s => s.id === body.id);
+        if(!snippet) return sendJSON(res, 404, { ok:false, error: 'not_found' });
+        snippet.name = name;
+        snippet.language = language;
+        snippet.code = code;
+        snippet.sizeBytes = sizeBytes;
+        snippet.updatedAt = new Date().toISOString();
+        saveDBNow();
+        return sendJSON(res, 200, { ok:true, id: snippet.id });
+      }
+
+      const snippet = {
+        id: crypto.randomBytes(8).toString('hex'),
+        name,
+        language,
+        code,
+        sizeBytes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      db.codeSnippets.push(snippet);
+      saveDBNow();
+      return sendJSON(res, 200, { ok:true, id: snippet.id });
+    }
+
+    /* ---- Admin: xem chi tiết (kèm nội dung đầy đủ) hoặc xoá 1 đoạn code cụ thể ---- */
+    const cvItemMatch = pathname.match(/^\/api\/admin\/code-snippets\/([a-f0-9]+)$/);
+    if(cvItemMatch && req.method === 'GET'){
+      const snippet = (db.codeSnippets || []).find(s => s.id === cvItemMatch[1]);
+      if(!snippet) return sendJSON(res, 404, { ok:false, error: 'not_found' });
+      return sendJSON(res, 200, snippet);
+    }
+    if(cvItemMatch && req.method === 'DELETE'){
+      db.codeSnippets = (db.codeSnippets || []).filter(s => s.id !== cvItemMatch[1]);
       saveDBNow();
       return sendJSON(res, 200, { ok:true });
     }
