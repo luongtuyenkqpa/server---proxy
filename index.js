@@ -4380,7 +4380,7 @@ const HTML_LINES = [
   "(function(){",
   "  'use strict';",
   "${finalCode}",
-  "})();`,",
+  "})();`;",
   "}",
   "",
   "/* Sự kiện: bấm nút Tạo Violentmonkey Script */",
