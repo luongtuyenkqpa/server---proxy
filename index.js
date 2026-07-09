@@ -11,6 +11,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
@@ -7511,6 +7512,106 @@ function resolvePublicUrl(req){
   return null;
 }
 
+/* ============================================================
+   STOCKFISH SERVER-SIDE ANALYSIS HELPER
+   Giao tiếp với stockfish binary qua UCI protocol (child_process).
+   Cài stockfish trên Render.com: Build Command = "apt-get install -y stockfish && npm install"
+   ============================================================ */
+function analyzeWithStockfish(fen, depth, multiPV, timeLimitMs, callback){
+  let sf;
+  try {
+    sf = spawn('stockfish', [], { stdio: ['pipe','pipe','pipe'] });
+  } catch(e) {
+    return callback(null, 'stockfish_not_installed: ' + e.message);
+  }
+
+  const moves = {};
+  let outputBuf = '';
+  let finished  = false;
+
+  function finish(err){
+    if(finished) return;
+    finished = true;
+    try { sf.stdin.end(); sf.kill('SIGKILL'); } catch(_){}
+    clearTimeout(globalTimer);
+    if(err) return callback(null, err);
+    const result = Object.values(moves).sort((a,b) => a.pvIdx - b.pvIdx);
+    callback(result.length > 0 ? result : null, result.length > 0 ? null : 'no_moves');
+  }
+
+  // Hard timeout — tránh block server quá lâu
+  const globalTimer = setTimeout(() => {
+    // Trả về kết quả tạm thời nếu đã có, dù engine chưa bestmove
+    const result = Object.values(moves).sort((a,b) => a.pvIdx - b.pvIdx);
+    finished = true;
+    try { sf.stdin.end(); sf.kill('SIGKILL'); } catch(_){}
+    callback(result.length > 0 ? result : null, result.length > 0 ? null : 'timeout');
+  }, timeLimitMs + 1000);
+
+  sf.stdout.on('data', (chunk) => {
+    outputBuf += chunk.toString();
+    const lines = outputBuf.split('\n');
+    outputBuf = lines.pop(); // giữ dòng chưa hoàn chỉnh
+
+    for(const line of lines){
+      if(!line) continue;
+
+      // Parse dòng "info" để lấy nước đi
+      if(line.startsWith('info') && line.includes(' pv ') && line.includes('score')){
+        const pvM    = line.match(/multipv (\d+)/);
+        const moveM  = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+        const depthM = line.match(/ depth (\d+)/);
+        const cpM    = line.match(/score cp (-?\d+)/);
+        const mateM  = line.match(/score mate (-?\d+)/);
+        if(!moveM) continue;
+
+        const pvIdx = pvM   ? parseInt(pvM[1])   : 1;
+        const move  = moveM[1];
+        const d     = depthM ? parseInt(depthM[1]) : 0;
+        let score = null, mate = null;
+
+        if(mateM){
+          mate = parseInt(mateM[1]);
+        } else if(cpM){
+          const cp   = parseInt(cpM[1]);
+          const turn = (fen.split(' ')[1] || 'w');
+          score = (turn === 'w') ? cp / 100 : -cp / 100;
+        }
+        moves[pvIdx] = { pvIdx, move, score, mate, depth: d };
+      }
+
+      if(line.startsWith('bestmove')){
+        const bm = line.split(' ')[1];
+        if(bm && bm !== '(none)' && !moves[1]){
+          moves[1] = { pvIdx:1, move:bm, score:null, mate:null, depth };
+        }
+        finish(null);
+      }
+    }
+  });
+
+  sf.stderr.on('data', () => {}); // bỏ qua stderr
+  sf.on('error', (e) => finish('spawn_error: ' + e.message));
+  sf.on('close', (code) => { if(!finished) finish(code === 0 ? null : 'engine_exit_' + code); });
+
+  // Gửi lệnh UCI
+  const cmds = [
+    'uci',
+    `setoption name Hash value 128`,
+    `setoption name Threads value 2`,
+    `setoption name MultiPV value ${multiPV}`,
+    `setoption name Use NNUE value true`,
+    'isready',
+    `position fen ${fen}`,
+    `go depth ${depth} movetime ${timeLimitMs}`,
+  ];
+  try {
+    sf.stdin.write(cmds.join('\n') + '\n');
+  } catch(e) {
+    finish('stdin_error: ' + e.message);
+  }
+}
+
 /* ---------------- Router ---------------- */
 const server = http.createServer(async (req, res)=>{
   let url;
@@ -7725,6 +7826,77 @@ const server = http.createServer(async (req, res)=>{
         maxDevices,
         deviceId: regDeviceId,
       });
+    }
+
+    /* ============================================================
+       /api/analyze  —  Phân tích cờ vua server-side (Kịch bản 2)
+       Body (POST JSON): { key, fen, depth?, multiPV?, app? }
+       Trả về: { success, moves: [{pvIdx, move, score, mate, depth}] }
+       Yêu cầu: stockfish phải được cài trên server.
+         Render.com → Build Command: apt-get install -y stockfish && npm install
+       ============================================================ */
+    if(pathname === '/api/analyze' && req.method === 'POST'){
+      const analyzeIp = getClientIP(req);
+      // Giới hạn: tối đa 120 request/phút/IP (mỗi 0.5s 1 lần là đủ cho chess)
+      if(isRateLimited('analyze', analyzeIp, 120, 60 * 1000)){
+        return sendJSON(res, 429, { success: false, reason: 'rate_limited' });
+      }
+
+      const body = await readJSONBody(req);
+      const aKey    = String(body.key    || '').trim();
+      const aFen    = String(body.fen    || '').trim();
+      const aDepth  = Math.min(Math.max(parseInt(body.depth  || '18') || 18, 10), 25);
+      const aMPV    = Math.min(Math.max(parseInt(body.multiPV|| '3')  || 3,  1),  5);
+      const aApp    = String(body.app    || 'chess-hint-v3').trim().slice(0, 100);
+
+      if(!aKey || !aFen){
+        return sendJSON(res, 400, { success: false, reason: 'missing_key_or_fen' });
+      }
+      // Kiểm tra FEN hợp lệ cơ bản (8 hàng phân cách /)
+      const fenParts = aFen.split(' ');
+      if(fenParts.length < 2 || (fenParts[0].match(/\//g) || []).length !== 7){
+        return sendJSON(res, 400, { success: false, reason: 'invalid_fen' });
+      }
+
+      // Xác thực key
+      const aFound = findKeyEverywhere(aKey);
+      if(!aFound){
+        return sendJSON(res, 200, { success: false, reason: 'key_not_found' });
+      }
+      const aStatus = computeKeyStatus(aFound.key);
+      if(aStatus === 'banned'){
+        return sendJSON(res, 200, { success: false, reason: 'banned' });
+      }
+      if(aStatus === 'expired'){
+        return sendJSON(res, 200, { success: false, reason: 'expired' });
+      }
+
+      // Giới hạn depth theo loại key (premium được depth cao hơn)
+      const isVIP   = (aFound.key.type === 'premium');
+      const maxDepth = isVIP ? 25 : 20;
+      const maxMPV   = isVIP ? 5  : 3;
+      const useDepth = Math.min(aDepth, maxDepth);
+      const useMPV   = Math.min(aMPV,   maxMPV);
+      // Thời gian suy nghĩ tối đa (ms) — VIP có thêm 1 giây
+      const moveTimeMs = isVIP ? 4000 : 2500;
+
+      // Chạy Stockfish phân tích
+      analyzeWithStockfish(aFen, useDepth, useMPV, moveTimeMs, (moves, err) => {
+        if(err || !moves || moves.length === 0){
+          return sendJSON(res, 200, {
+            success: false,
+            reason: err || 'no_moves',
+            hint: 'Đảm bảo stockfish đã cài trên server (apt-get install -y stockfish)'
+          });
+        }
+        return sendJSON(res, 200, {
+          success: true,
+          moves,
+          depth: useDepth,
+          isVIP,
+        });
+      });
+      return; // analyzeWithStockfish gọi sendJSON bên trong callback
     }
 
     /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
