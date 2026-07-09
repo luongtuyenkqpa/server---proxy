@@ -7400,6 +7400,52 @@ const server = http.createServer(async (req, res)=>{
       });
     }
 
+    /* ---- Đăng ký / ghi nhận thiết bị cho 1 key (POST /api/device/register) ----
+       Script chess hint gọi endpoint này ngay sau khi xác thực key thành công để
+       server ghi nhận deviceId → số thiết bị hiển thị đúng (VD: 1/1) trên dashboard. */
+    if(pathname === '/api/device/register' && req.method === 'POST'){
+      const regIp = getClientIP(req);
+      if(isRateLimited('device_reg', regIp, 20, 60 * 1000)){
+        return sendJSON(res, 429, { ok: false, reason: 'rate_limited' });
+      }
+      const body = await readJSONBody(req);
+      const regKey      = String(body.key      || '').trim();
+      const regDeviceId = String(body.deviceId || body.device_id || body.device || '').trim().slice(0, 200);
+      const regAppId    = String(body.app      || body.appId || body.app_id || 'unknown-app').trim().slice(0, 100);
+      if(!regKey || !regDeviceId){
+        return sendJSON(res, 400, { ok: false, reason: 'missing_key_or_deviceId' });
+      }
+      const found = findKeyEverywhere(regKey);
+      if(!found){
+        return sendJSON(res, 200, { ok: false, reason: 'key_not_found' });
+      }
+      const kStatus = computeKeyStatus(found.key);
+      if(kStatus === 'banned' || kStatus === 'expired'){
+        return sendJSON(res, 200, { ok: false, reason: kStatus });
+      }
+      // Kích hoạt key nếu chưa kích hoạt
+      activateKeyIfNeeded(found.key);
+      // Ghi nhận thiết bị
+      found.key.devices = Array.isArray(found.key.devices)
+        ? found.key.devices
+        : (found.key.deviceId ? [found.key.deviceId] : []);
+      const maxDevices = found.key.maxDevices || 1;
+      if(!found.key.devices.includes(regDeviceId)){
+        if(found.key.devices.length >= maxDevices){
+          return sendJSON(res, 200, { ok: false, reason: 'device_limit_exceeded', devicesUsed: found.key.devices.length, maxDevices });
+        }
+        found.key.devices.push(regDeviceId);
+        found.key.deviceId = found.key.devices[0];
+      }
+      saveDBDebounced();
+      return sendJSON(res, 200, {
+        ok: true,
+        devicesUsed: found.key.devices.length,
+        maxDevices,
+        deviceId: regDeviceId,
+      });
+    }
+
     /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
     if(pathname === '/api/logs' && req.method === 'GET'){
       return sendJSON(res, 200, db.verifyLogs || []);
