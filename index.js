@@ -1489,6 +1489,7 @@ const HTML_LINES = [
   "          <label style=\"display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer;\"><input type=\"checkbox\" id=\"vmAntiDebug\" checked style=\"accent-color:var(--brass); width:auto;\"> Anti-debug / Anti-soi code</label>",
   "          <label style=\"display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer;\"><input type=\"checkbox\" id=\"vmAntiEdit\" checked style=\"accent-color:var(--brass); width:auto;\"> Anti-chỉnh sửa runtime</label>",
   "          <label style=\"display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer;\"><input type=\"checkbox\" id=\"vmAntiConsole\" checked style=\"accent-color:var(--brass); width:auto;\"> Khoá DevTools Console</label>",
+  "          <label style=\"display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer; color:var(--brass);\"><input type=\"checkbox\" id=\"vmAutoEndpoint\" checked style=\"accent-color:var(--brass); width:auto;\"> 🔗 Auto lấy Public Endpoint từ server (không cần chọn code thủ công)</label>",
   "        </div>",
   "      </div>",
   "",
@@ -4369,14 +4370,16 @@ const HTML_LINES = [
   "  if(prev) sel.value = prev;",
   "}",
   "",
-  "/* Sinh nội dung userscript Violentmonkey — v4 Auto-Update */",
-  "function vmBuildScript({ scriptName, matchUrl, snippetId, snippetName, loadingSec, antiBug, antiDebug, antiEdit, antiConsole }){",
+  "/* Sinh nội dung userscript Violentmonkey — v5 Auto-Update + Auto-Endpoint */",
+  "function vmBuildScript({ scriptName, matchUrl, snippetId, snippetName, loadingSec, antiBug, antiDebug, antiEdit, antiConsole, autoEndpoint }){",
   "  const serverBase = (window.API_BASE || window.location.origin);",
+  "  // autoEndpoint=true: Loader tự fetch /api/public/snippets để lấy endpoint mới nhất",
+  "  const snippetsListUrl = serverBase + '/api/public/snippets';",
   "  const versionUrl = serverBase + '/api/public/snippet/' + snippetId + '/version';",
   "  const codeUrl    = serverBase + '/api/public/snippet/' + snippetId;",
   "  const loadMs = (parseInt(loadingSec) || 4) * 1000;",
-  "  const cacheCodeKey = '__kv_code_vm__' + snippetId;",
-  "  const cacheMetaKey = '__kv_meta_vm__' + snippetId;",
+  "  const cacheCodeKey = '__kv_code_vm__' + (autoEndpoint ? 'auto' : snippetId);",
+  "  const cacheMetaKey = '__kv_meta_vm__' + (autoEndpoint ? 'auto' : snippetId);",
   "",
   "  /* ---- Khối anti-debug ---- */",
   "  const antiDebugBlock = antiDebug ? `",
@@ -4507,12 +4510,30 @@ const HTML_LINES = [
   "  const mainLoader = `",
   "  async function _kvRun(){",
   "    if(window.__kvVMRunning) return; window.__kvVMRunning=true;",
-  "    const VERSION_URL='${versionUrl}'; const CODE_URL='${codeUrl}';",
+  "    // === AUTO-ENDPOINT: tự fetch danh sách snippet từ server ===",
+  "    const SNIPPETS_LIST_URL='${snippetsListUrl}';",
+  "    const AUTO_ENDPOINT=${autoEndpoint ? 'true' : 'false'};",
+  "    let VERSION_URL='${versionUrl}'; let CODE_URL='${codeUrl}';",
+  "    if(AUTO_ENDPOINT){",
+  "      try{",
+  "        _setStatus('Đang lấy Public Endpoint từ server...');",
+  "        const listRes=await _kvFetchOnce(SNIPPETS_LIST_URL);",
+  "        if(listRes.ok){",
+  "          const list=await listRes.json();",
+  "          if(Array.isArray(list)&&list.length>0){",
+  "            const sn=list[0];",
+  "            const base=SNIPPETS_LIST_URL.replace('/api/public/snippets','');",
+  "            VERSION_URL=base+'/api/public/snippet/'+sn.id+'/version';",
+  "            CODE_URL   =base+'/api/public/snippet/'+sn.id;",
+  "          }",
+  "        }",
+  "      }catch(_e){ /* fallback to hardcoded endpoint */ }",
+  "    }",
   "    const [,vRes]=await Promise.allSettled([new Promise(r=>setTimeout(r,${loadMs})),_kvFetchJSON(VERSION_URL,'version')]);",
   "    if(vRes.status==='rejected'){",
   "      const cc=_kvLoadCacheCode(); const cm=_kvLoadCacheMeta();",
   "      if(cc){ _setStatus('Không kết nối được — đang dùng cache...'); const age=cm?Math.round((Date.now()-cm.cachedAt)/60000):'?'; _showBadge('📦 Cache ('+age+' phút trước)'); await new Promise(r=>setTimeout(r,800)); _finishOverlay(()=>_kvExec(cc)); }",
-  "      else{ _showError('<b>'+(vRes.reason&&vRes.reason.message||'Lỗi kết nối')+'</b><br><span style=\\'color:#666\\'>Chưa có cache — kiểm tra kết nối mạng.</span>'); }",
+  "      else{ _showError('<b>'+(vRes.reason&&vRes.reason.message||'Lỗi kết nối')+'</b><br><span style=\\\\\'color:#666\\\\\'>Chưa có cache — kiểm tra kết nối mạng.</span>'); }",
   "      return;",
   "    }",
   "    const sVer=vRes.value; const sChecksum=(sVer&&sVer.checksum)||null; const sUpdatedAt=(sVer&&sVer.updatedAt)||null;",
@@ -4524,17 +4545,16 @@ const HTML_LINES = [
   "    const [,cRes]=await Promise.allSettled([Promise.resolve(),_kvFetchJSON(CODE_URL,'code')]);",
   "    if(cRes.status==='fulfilled'){",
   "      const data=cRes.value; const newCode=(data&&(data.code||data.content))||null;",
-  "      if(!newCode||newCode.trim().length<10){ _showError('<b>Server trả về code rỗng</b><br><span style=\\'color:#666\\'>Kiểm tra lại snippet trên server.</span>'); return; }",
+  "      if(!newCode||newCode.trim().length<10){ _showError('<b>Server trả về code rỗng</b><br><span style=\\\\\'color:#666\\\\\'>Kiểm tra lại snippet trên server.</span>'); return; }",
   "      _kvSaveCache(newCode,sChecksum||data.checksum,sUpdatedAt||data.updatedAt);",
   "      if(hasCache) _showBadge('🔄 Đã cập nhật lên phiên bản '+(sUpdatedAt?new Date(sUpdatedAt).toLocaleString('vi-VN'):'mới'));",
   "      _finishOverlay(()=>_kvExec(newCode));",
   "    } else {",
   "      if(cc){ _setStatus('Không tải được bản mới — dùng cache cũ...'); _showBadge('⚠ Đang dùng bản cũ (offline)'); await new Promise(r=>setTimeout(r,800)); _finishOverlay(()=>_kvExec(cc)); }",
-  "      else{ _showError('<b>'+(cRes.reason&&cRes.reason.message||'Lỗi tải code')+'</b><br><span style=\\'color:#666\\'>Không có cache dự phòng.</span>'); }",
+  "      else{ _showError('<b>'+(cRes.reason&&cRes.reason.message||'Lỗi tải code')+'</b><br><span style=\\\\\'color:#666\\\\\'>Không có cache dự phòng.</span>'); }",
   "    }",
   "  }",
   "  _kvRun();",
-  "  `;",
   "",
   "  const innerCode = `${gmPolyfillBlock}\\n${cacheBlock}\\n${fetchHelper}\\n${execBlock}\\n${antiConsoleBlock}${antiDebugBlock}${antiEditBlock}${loaderUI}\\n${mainLoader}`;",
   "  const finalCode = antiBugWrap(innerCode);",
@@ -4571,10 +4591,11 @@ const HTML_LINES = [
   "",
   "/* Sự kiện: bấm nút Tạo Violentmonkey Script */",
   "document.getElementById('btnGenerateVMScript').addEventListener('click', ()=>{",
+  "  const autoEndpoint = document.getElementById('vmAutoEndpoint') && document.getElementById('vmAutoEndpoint').checked;",
   "  const snippetId = document.getElementById('vmSnippetId').value;",
-  "  if(!snippetId){ showToast('Vui lòng chọn đoạn code cần tải'); return; }",
-  "  const snippet = (codeSnippets||[]).find(s=>s.id===snippetId);",
-  "  if(!snippet){ showToast('Không tìm thấy đoạn code này'); return; }",
+  "  // Nếu autoEndpoint bật: không bắt buộc chọn code — server tự trả endpoint",
+  "  if(!autoEndpoint && !snippetId){ showToast('Vui lòng chọn đoạn code hoặc bật Auto Endpoint'); return; }",
+  "  const snippet = (codeSnippets||[]).find(s=>s.id===snippetId) || (codeSnippets&&codeSnippets[0]) || { name: 'Auto Script', id: '' };",
   "  const scriptName = document.getElementById('vmScriptName').value.trim() || 'KeyVault Loader';",
   "  const matchUrl = document.getElementById('vmMatchUrl').value.trim() || '*://*/*';",
   "  const loadingSec = parseInt(document.getElementById('vmLoadingSeconds').value)||4;",
@@ -4582,11 +4603,11 @@ const HTML_LINES = [
   "  const antiDebug = document.getElementById('vmAntiDebug').checked;",
   "  const antiEdit = document.getElementById('vmAntiEdit').checked;",
   "  const antiConsole = document.getElementById('vmAntiConsole').checked;",
-  "  const script = vmBuildScript({ scriptName, matchUrl, snippetId, snippetName: snippet.name, loadingSec, antiBug, antiDebug, antiEdit, antiConsole });",
+  "  const script = vmBuildScript({ scriptName, matchUrl, snippetId: snippet.id || '', snippetName: snippet.name, loadingSec, antiBug, antiDebug, antiEdit, antiConsole, autoEndpoint });",
   "  document.getElementById('vmScriptContent').value = script;",
   "  document.getElementById('vmScriptOutput').style.display = '';",
   "  document.getElementById('vmScriptContent').scrollIntoView({ behavior: 'smooth', block: 'center' });",
-  "  showToast('Script đã được tạo — copy và cài vào Violentmonkey');",
+  "  showToast(autoEndpoint ? 'Script đã tạo với Auto Endpoint — tự kéo code mới nhất từ server!' : 'Script đã được tạo — copy và cài vào Violentmonkey');",
   "});",
   "",
   "/* Sao chép script */",
@@ -10942,6 +10963,27 @@ const server = http.createServer(async (req, res)=>{
         'Access-Control-Allow-Headers': 'Content-Type,X-KV-Checksum'
       });
       return res.end();
+    }
+
+    /* ── GET /api/public/snippets ─────────────────────────────────────
+       Trả danh sách tất cả snippet đang có (không kèm code — chỉ metadata).
+       Violentmonkey Loader dùng để tự động lấy Public Endpoint mà không cần
+       hardcode ID. Response: [{ id, name, updatedAt, checksum }, ...]        */
+    if(pathname === '/api/public/snippets' && req.method === 'GET'){
+      const allSnippets = [
+        ...(db.codeSnippets || []),
+        ...Object.values(_defaultSnippetMap).filter(d => !(db.codeSnippets||[]).some(x=>x.id===d.id))
+      ];
+      _publicHeaders(res);
+      res.writeHead(200);
+      return res.end(JSON.stringify(
+        allSnippets.map(s => ({
+          id        : s.id,
+          name      : s.name,
+          updatedAt : s.updatedAt || s.createdAt,
+          checksum  : _codeChecksum(s.code)
+        }))
+      ));
     }
 
     /* ── GET /api/public/snippet/:id/version ─────────────────────────
