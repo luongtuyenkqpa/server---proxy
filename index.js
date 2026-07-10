@@ -7446,16 +7446,1684 @@ const CV_ALLOWED_LANGS = ['python', 'java', 'javascript', 'other'];
    (thay thế /api/admin/code-snippets/:id cũ)
    ================================================================ */
 const DEFAULT_CODE_SNIPPETS = [
-  /* ── Thêm snippet của bạn vào đây ──────────────────────────────
-     {
-       id      : 'c50b71940c45af34',   // ID lấy từ trang admin
-       name    : 'chess_move_hint_v6', // tên hiển thị
-       language: 'javascript',
-       code    : `// Dán toàn bộ code script gốc vào đây`,
-       createdAt: '2026-07-07T00:00:00.000Z',
-       updatedAt: '2026-07-10T00:00:00.000Z'
-     },
-  ─────────────────────────────────────────────────────────────── */
+  {
+    id      : 'c50b71940c45af34',
+    name    : 'chess_move_hint_v6',
+    language: 'javascript',
+    code    : `// ==UserScript==
+// @name         Chess.com - Gợi Ý Nước Đi 2200+ ELO v4
+// @namespace    http://tampermonkey.net/
+// @version      6.0
+// @description  Gợi ý nước đi 2200+ ELO bằng Stockfish NNUE, xác thực key qua server — v6: thêm Auto Ván Mới (chỉ auto ở ván đầu tiên)
+// @author       Custom Script
+// @match        https://www.chess.com/*
+// @grant        GM_addStyle
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
+// @connect      *
+// @run-at       document-idle
+// ==/UserScript==
+
+(function () {
+  'use strict';
+
+  const SERVER_URL = 'https://server-proxy-v2c0.onrender.com';
+  const APP_ID     = 'chess-hint-v3';
+
+  // ─── STATE ──────────────────────────────────────────────────
+  let hintEnabled    = false;
+  let selectedSide   = 'white';
+  let stockfish      = null;
+  let currentFen     = '';
+  let hintArrow      = null;
+  let isEngineReady  = false;
+  let analysisDepth  = 20;
+  let multiPV        = 3;
+  let bestMoves      = [];
+  let userKey        = '';
+  let isVIP          = false;
+  let keyExpiresAt   = null;
+  let isAuthenticated = false;
+
+  // NEW: Auto Ván Mới — chỉ auto ở ván ĐẦU TIÊN sau khi bật toggle
+  let autoNewGame        = false;   // toggle bật/tắt
+  let autoNewGameUsed    = false;   // đã dùng 1 lần chưa (chỉ auto ván đầu)
+  let gameOverWatcher    = null;    // interval theo dõi kết thúc ván
+
+  // NEW: Arrow color (7 colors)
+  const ARROW_COLORS = [
+    { name: 'Xanh lá',  hex: '#00e676' },
+    { name: 'Vàng',     hex: '#ffd700' },
+    { name: 'Đỏ',       hex: '#ff5252' },
+    { name: 'Xanh dương', hex: '#40c4ff' },
+    { name: 'Tím',      hex: '#ea80fc' },
+    { name: 'Cam',      hex: '#ff9100' },
+    { name: 'Trắng',    hex: '#ffffff' },
+  ];
+  let arrowColorIndex = 0;
+
+  try { userKey = GM_getValue('chess_hint_key', ''); } catch (_) {}
+  try { arrowColorIndex = parseInt(GM_getValue('arrowColorIdx', '0')) || 0; } catch (_) {}
+  try { autoNewGame = GM_getValue('autoNewGame', false); } catch (_) {}
+
+  // ─── CSS ────────────────────────────────────────────────────
+  GM_addStyle(\`
+    @keyframes vip-glow-pulse {
+      0%,100% { box-shadow: 0 0 18px 3px rgba(255,215,0,0.45), 0 8px 32px rgba(0,0,0,0.6); }
+      50%      { box-shadow: 0 0 32px 8px rgba(255,215,0,0.75), 0 12px 40px rgba(0,0,0,0.7); }
+    }
+    @keyframes vip-border-spin {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes vip-badge-shine {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes star-float {
+      0%,100% { transform: translateY(0) rotate(0deg); opacity:1; }
+      50%      { transform: translateY(-6px) rotate(15deg); opacity:.7; }
+    }
+    @keyframes login-fade-in {
+      from { opacity:0; transform:translateY(-12px) scale(.97); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    @keyframes login-shake {
+      0%,100%{ transform:translateX(0); }
+      20%    { transform:translateX(-8px); }
+      40%    { transform:translateX(8px); }
+      60%    { transform:translateX(-5px); }
+      80%    { transform:translateX(5px); }
+    }
+    @keyframes spinner-rotate { to { transform: rotate(360deg); } }
+    @keyframes move-slide-in {
+      from { opacity:0; transform:translateX(-8px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+    @keyframes arrow-draw {
+      from { stroke-dashoffset: 200; opacity:0; }
+      to   { stroke-dashoffset: 0;   opacity:.9; }
+    }
+    @keyframes toast-in {
+      from { opacity:0; transform:translateX(-50%) translateY(-20px) scale(.9); }
+      to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+    }
+    @keyframes toast-out {
+      from { opacity:1; transform:translateX(-50%) scale(1); }
+      to   { opacity:0; transform:translateX(-50%) scale(.9); }
+    }
+
+    /* ─── PANEL ─────────────────────────────────────────────── */
+    #chess-hint-panel {
+      position: fixed;
+      top: 80px; right: 16px;
+      z-index: 999999;
+      background: #12121f;
+      border: 1px solid #1e2040;
+      border-radius: 14px;
+      padding: 14px 16px;
+      width: 240px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      color: #e0e0e0;
+      user-select: none;
+      transition: box-shadow 0.3s ease;
+    }
+    #chess-hint-panel:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.75); }
+
+    #chess-hint-panel.vip-panel {
+      background: linear-gradient(160deg, #1a1400 0%, #16121e 40%, #0d1020 100%);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      animation: vip-glow-pulse 3s ease-in-out infinite;
+    }
+    #chess-hint-panel.vip-panel::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 16px;
+      background: linear-gradient(120deg, #ffd700, #ff6bff, #00cfff, #ffd700);
+      background-size: 300% 300%;
+      animation: vip-border-spin 4s linear infinite;
+      z-index: -1;
+    }
+
+    /* ─── VIP BADGE ─────────────────────────────────────────── */
+    #vip-badge {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #ffd700, #ffaa00, #ffd700);
+      background-size: 200% auto;
+      animation: vip-badge-shine 2.5s linear infinite;
+      color: #1a1000;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    #vip-badge.visible { display: flex; }
+    #vip-badge .vip-star { display: inline-block; animation: star-float 2s ease-in-out infinite; }
+
+    /* ─── DRAG HANDLE ────────────────────────────────────────── */
+    #chess-hint-drag-handle {
+      cursor: grab;
+      margin: -14px -16px 8px -16px;
+      padding: 8px 16px 6px 16px;
+      background: rgba(129,199,132,0.06);
+      border-radius: 14px 14px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #666;
+      letter-spacing: 1px;
+      touch-action: none;
+    }
+    .vip-panel #chess-hint-drag-handle { background: rgba(255,215,0,0.06); }
+    #chess-hint-drag-handle:hover { color:#aaa; background:rgba(129,199,132,0.12); }
+    #chess-hint-drag-handle:active { cursor:grabbing; }
+    #chess-hint-panel.is-dragging { opacity:.92; box-shadow: 0 20px 60px rgba(0,0,0,0.85); transition:none; }
+    #chess-hint-drag-handle span { pointer-events:none; }
+    #drag-dots { display:flex; flex-direction:column; gap:2px; padding-right:4px; opacity:.5; pointer-events:none; }
+    #drag-dots i { display:flex; gap:2px; }
+    #drag-dots i::before, #drag-dots i::after {
+      content:''; display:block; width:3px; height:3px; background:currentColor; border-radius:50%;
+    }
+    #chess-hint-drag-handle:hover #drag-dots { opacity:.9; }
+
+    /* ─── COLLAPSE BTN ──────────────────────────────────────── */
+    #hint-collapse-btn {
+      cursor:pointer !important;
+      background:rgba(129,199,132,0.15);
+      border:1px solid rgba(129,199,132,0.3);
+      border-radius:5px; color:#81c784; font-size:11px;
+      padding:2px 7px; line-height:1.4;
+      transition:background 0.2s, transform 0.25s ease; flex-shrink:0;
+    }
+    #hint-collapse-btn:hover { background:rgba(129,199,132,0.3); color:#fff; }
+    #hint-collapse-btn.collapsed-arrow { transform:rotate(180deg); }
+
+    #chess-hint-body {
+      overflow:hidden;
+      transition: max-height .32s cubic-bezier(.4,0,.2,1), opacity .25s ease, margin-top .25s ease;
+      max-height: 700px; opacity:1; margin-top:0;
+    }
+    #chess-hint-body.collapsed { max-height:0 !important; opacity:0; pointer-events:none; margin-top:0; }
+
+    #hint-mini-badge {
+      display:none; font-size:10px; color:#81c784;
+      margin-top:4px; letter-spacing:.3px;
+      text-align:center; padding:2px 0;
+      opacity:0; transition:opacity .2s ease;
+    }
+    #chess-hint-panel.panel-collapsed #hint-mini-badge { display:block; opacity:1; }
+
+    #hint-pos-tooltip {
+      position:absolute; top:-26px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,.75); color:#aaa; font-size:10px;
+      padding:2px 7px; border-radius:4px; white-space:nowrap;
+      pointer-events:none; opacity:0; transition:opacity .2s;
+    }
+    #chess-hint-panel.is-dragging #hint-pos-tooltip { opacity:1; }
+
+    /* ─── PANEL TITLE ────────────────────────────────────────── */
+    #chess-hint-panel h3 {
+      margin:0 0 10px 0; font-size:13px; font-weight:700;
+      color:#81c784; letter-spacing:.5px;
+      display:flex; align-items:center; gap:6px;
+    }
+    #chess-hint-panel h3::before { content:'♟'; font-size:16px; }
+    .vip-panel h3 { color:#ffd700; }
+
+    /* ─── ENGINE STRENGTH ────────────────────────────────────── */
+    #elo-indicator {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:5px 8px; background:rgba(33,150,243,.08);
+      border:1px solid rgba(33,150,243,.2); border-radius:7px;
+      margin-bottom:10px;
+    }
+    #elo-indicator .elo-label { font-size:10px; color:#64b5f6; }
+    #elo-indicator .elo-value { font-size:12px; font-weight:700; color:#90caf9; }
+    .vip-panel #elo-indicator { background:rgba(255,215,0,.06); border-color:rgba(255,215,0,.25); }
+    .vip-panel #elo-indicator .elo-label { color:#ffd700aa; }
+    .vip-panel #elo-indicator .elo-value { color:#ffd700; }
+
+    /* ─── KEY EXPIRY ─────────────────────────────────────────── */
+    #key-expiry-bar {
+      font-size:10px; color:#9e9e9e; text-align:center;
+      padding:3px 0 6px; border-bottom:1px solid rgba(255,255,255,.06);
+      margin-bottom:10px;
+    }
+    #key-expiry-bar .expiry-ok   { color:#81c784; }
+    #key-expiry-bar .expiry-warn { color:#ffcc80; }
+    #key-expiry-bar .expiry-vip  { color:#ffd700; font-weight:600; }
+
+    /* ─── TOGGLE ─────────────────────────────────────────────── */
+    .hint-toggle-row {
+      display:flex; align-items:center;
+      justify-content:space-between; margin-bottom:10px;
+    }
+    .hint-toggle-label { font-size:12px; color:#bdbdbd; }
+    .toggle-switch { position:relative; width:44px; height:24px; flex-shrink:0; }
+    .toggle-switch input { opacity:0; width:0; height:0; position:absolute; }
+    .toggle-slider {
+      position:absolute; inset:0; background:#444;
+      border-radius:24px; cursor:pointer; transition:background .25s;
+    }
+    .toggle-slider:before {
+      content:''; position:absolute;
+      width:18px; height:18px; left:3px; top:3px;
+      background:#fff; border-radius:50%; transition:transform .25s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background:#4caf50; }
+    .toggle-switch input:checked + .toggle-slider:before { transform:translateX(20px); }
+    .vip-panel .toggle-switch input:checked + .toggle-slider { background:linear-gradient(90deg,#e6b800,#ffd700); }
+
+    /* ─── SIDE BUTTONS ──────────────────────────────────────── */
+    .side-label { font-size:11px; color:#9e9e9e; margin-bottom:6px; }
+    .side-buttons { display:flex; gap:8px; margin-bottom:10px; }
+    .side-btn {
+      flex:1; padding:7px 0; border-radius:8px;
+      border:1.5px solid transparent; font-size:12px;
+      font-weight:600; cursor:pointer; transition:all .2s; text-align:center;
+    }
+    .side-btn.white-btn { background:#f5f5f5; color:#1a1a1a; border-color:#888; }
+    .side-btn.white-btn.active { border-color:#81c784; background:#fff; box-shadow:0 0 0 2px rgba(129,199,132,.3); }
+    .side-btn.black-btn { background:#2a2a2a; color:#e0e0e0; border-color:#555; }
+    .side-btn.black-btn.active { border-color:#81c784; background:#222; box-shadow:0 0 0 2px rgba(129,199,132,.3); }
+    .vip-panel .side-btn.white-btn.active { border-color:#ffd700; box-shadow:0 0 0 2px rgba(255,215,0,.3); }
+    .vip-panel .side-btn.black-btn.active { border-color:#ffd700; box-shadow:0 0 0 2px rgba(255,215,0,.3); }
+
+    /* ─── DEPTH ─────────────────────────────────────────────── */
+    .depth-row {
+      display:flex; align-items:center;
+      justify-content:space-between; margin-bottom:8px;
+    }
+    .depth-label { font-size:11px; color:#9e9e9e; }
+    .depth-select {
+      background:#1e2040; color:#e0e0e0;
+      border:1px solid #555; border-radius:6px;
+      padding:3px 6px; font-size:12px; cursor:pointer;
+    }
+
+    /* ─── ARROW COLOR PICKER ────────────────────────────────── */
+    #arrow-color-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    #arrow-color-label { font-size:11px; color:#9e9e9e; }
+    #arrow-color-swatch-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .arrow-color-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform .15s, border-color .15s;
+      flex-shrink: 0;
+    }
+    .arrow-color-dot:hover { transform: scale(1.25); }
+    .arrow-color-dot.selected { border-color: #fff; transform: scale(1.2); }
+
+    /* ─── MOVE LIST ─────────────────────────────────────────── */
+    #hint-moves-list { margin-bottom:10px; }
+    .move-item {
+      display:flex; align-items:center; gap:8px;
+      padding:5px 8px; border-radius:7px;
+      margin-bottom:4px; cursor:pointer;
+      transition:background .15s;
+      animation: move-slide-in .2s ease forwards;
+    }
+    .move-item:hover { background:rgba(255,255,255,.06); }
+    .move-rank {
+      width:18px; height:18px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:700; flex-shrink:0;
+    }
+    .move-rank.rank-1 { background:#4caf50; color:#fff; }
+    .move-rank.rank-2 { background:#2196f3; color:#fff; }
+    .move-rank.rank-3 { background:#9c27b0; color:#fff; }
+    .move-uci { font-size:13px; font-weight:700; color:#e0e0e0; flex:1; letter-spacing:.5px; }
+    .move-score {
+      font-size:11px; color:#81c784; font-weight:600;
+      background:rgba(129,199,132,.1); padding:1px 6px; border-radius:10px;
+    }
+    .move-score.negative { color:#ef9a9a; background:rgba(239,154,154,.1); }
+    .move-score.mate     { color:#ffd700; background:rgba(255,215,0,.12); }
+    .vip-panel .move-rank.rank-1 { background:linear-gradient(135deg,#ffd700,#ffaa00); color:#1a1000; }
+    .vip-panel .move-score       { color:#ffd700; background:rgba(255,215,0,.12); }
+
+    /* ─── STATUS ─────────────────────────────────────────────── */
+    #hint-status {
+      font-size:11px; color:#81c784; min-height:16px;
+      text-align:center; padding:4px 6px;
+      background:rgba(129,199,132,.08); border-radius:6px;
+    }
+    #hint-status.error   { color:#ef9a9a; background:rgba(239,154,154,.08); }
+    #hint-status.thinking { color:#ffcc80; background:rgba(255,204,128,.08); }
+    .vip-panel #hint-status { color:#ffd700; background:rgba(255,215,0,.08); }
+
+    /* ─── AUTO VÁN MỚI ──────────────────────────────────────── */
+    #auto-new-game-row {
+      display:flex; align-items:center;
+      justify-content:space-between; margin-bottom:10px;
+      padding:6px 8px;
+      background:rgba(33,150,243,.07);
+      border:1px solid rgba(33,150,243,.18);
+      border-radius:8px;
+    }
+    #auto-new-game-row .ang-label-wrap { display:flex; flex-direction:column; gap:1px; }
+    #auto-new-game-row .ang-title { font-size:12px; color:#90caf9; font-weight:600; }
+    #auto-new-game-row .ang-sub   { font-size:10px; color:#546e7a; }
+    #auto-new-game-row.used .ang-sub { color:#ffd700; }
+    .vip-panel #auto-new-game-row { background:rgba(255,215,0,.06); border-color:rgba(255,215,0,.2); }
+    .vip-panel #auto-new-game-row .ang-title { color:#ffd700; }
+
+    /* ─── LOGOUT ─────────────────────────────────────────────── */
+    #btn-logout {
+      width:100%; margin-top:8px;
+      background:rgba(239,83,80,.1); border:1px solid rgba(239,83,80,.3);
+      color:#ef9a9a; border-radius:7px; font-size:11px;
+      padding:5px 0; cursor:pointer; transition:background .2s;
+    }
+    #btn-logout:hover { background:rgba(239,83,80,.22); color:#fff; }
+
+    /* ─── TOAST NOTIFICATION ─────────────────────────────────── */
+    #hint-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999999;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+      pointer-events: none;
+      display: none;
+    }
+    #hint-toast.toast-error   { background: linear-gradient(135deg,#b71c1c,#e53935); }
+    #hint-toast.toast-warn    { background: linear-gradient(135deg,#e65100,#ff9100); }
+    #hint-toast.toast-success { background: linear-gradient(135deg,#1b5e20,#43a047); }
+    #hint-toast.show { display:block; animation: toast-in .3s ease forwards; }
+    #hint-toast.hide { animation: toast-out .3s ease forwards; }
+
+    /* ─── LOGIN MODAL ────────────────────────────────────────── */
+    #chess-login-overlay {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.75);
+      backdrop-filter:blur(6px);
+      z-index:9999998;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #chess-login-modal {
+      background:#0f1022;
+      border:1px solid #1e2248;
+      border-radius:18px;
+      padding:32px 28px 24px;
+      width:320px;
+      box-shadow:0 24px 80px rgba(0,0,0,.8);
+      animation:login-fade-in .35s cubic-bezier(.34,1.56,.64,1) forwards;
+      position:relative;
+      overflow:hidden;
+    }
+    #chess-login-modal::before {
+      content:'';
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(rgba(129,199,132,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(129,199,132,.03) 1px, transparent 1px);
+      background-size:24px 24px;
+      pointer-events:none;
+    }
+    #chess-login-modal.shake { animation:login-shake .4s ease; }
+    .login-icon {
+      text-align:center; font-size:42px; margin-bottom:4px;
+      filter:drop-shadow(0 0 12px rgba(129,199,132,.5));
+    }
+    .login-title {
+      text-align:center; font-family:'Segoe UI',Arial,sans-serif;
+      font-size:20px; font-weight:700; color:#e0e0e0;
+      margin-bottom:4px;
+    }
+    .login-subtitle {
+      text-align:center; font-size:12px; color:#666;
+      margin-bottom:22px; line-height:1.5;
+    }
+    .login-input-wrap { position:relative; margin-bottom:14px; }
+    .login-input-wrap .input-icon {
+      position:absolute; left:11px; top:50%; transform:translateY(-50%);
+      font-size:15px; pointer-events:none; opacity:.5;
+    }
+    #login-key-input {
+      width:100%; box-sizing:border-box;
+      background:#191b2e; border:1.5px solid #2a2d50;
+      color:#e0e0e0; border-radius:10px;
+      padding:11px 12px 11px 36px;
+      font-size:13px; font-family:monospace;
+      outline:none; transition:border-color .2s, box-shadow .2s;
+    }
+    #login-key-input::placeholder { color:#454870; }
+    #login-key-input:focus { border-color:#4caf50; box-shadow:0 0 0 3px rgba(76,175,80,.15); }
+    #login-btn {
+      width:100%; padding:12px 0; border-radius:10px; border:none;
+      background:linear-gradient(135deg, #2e7d32, #43a047);
+      color:#fff; font-size:14px; font-weight:700;
+      cursor:pointer; transition:filter .2s, transform .15s;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    #login-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+    #login-btn:active { transform:translateY(0); }
+    #login-btn:disabled { opacity:.6; cursor:not-allowed; filter:none; transform:none; }
+    #login-btn .btn-spinner {
+      width:16px; height:16px; border-radius:50%;
+      border:2px solid rgba(255,255,255,.3);
+      border-top-color:#fff;
+      animation:spinner-rotate .7s linear infinite;
+      display:none;
+    }
+    #login-btn.loading .btn-spinner { display:block; }
+    #login-btn.loading .btn-text { display:none; }
+    #login-error {
+      font-size:12px; color:#ef9a9a;
+      text-align:center; margin-top:10px; min-height:16px;
+      background:rgba(239,83,80,.08); border-radius:6px;
+      padding:5px 8px; display:none;
+    }
+    #login-error.visible { display:block; }
+    .login-footer { margin-top:18px; text-align:center; font-size:11px; color:#454870; }
+    .login-footer a { color:#81c784; text-decoration:none; }
+    .login-footer a:hover { text-decoration:underline; }
+    .key-types-hint {
+      display:flex; gap:8px; justify-content:center;
+      margin-bottom:20px; flex-wrap:wrap;
+    }
+    .key-type-badge {
+      font-size:10px; padding:3px 10px; border-radius:20px; font-weight:600; letter-spacing:.3px;
+    }
+    .key-type-badge.normal {
+      background:rgba(129,199,132,.12); color:#81c784; border:1px solid rgba(129,199,132,.25);
+    }
+    .key-type-badge.premium {
+      background:linear-gradient(90deg,rgba(255,215,0,.15),rgba(255,170,0,.15));
+      color:#ffd700; border:1px solid rgba(255,215,0,.3);
+    }
+    #chess-login-modal.vip-login {
+      border-color:#ffd70066;
+      box-shadow:0 0 40px rgba(255,215,0,.25), 0 24px 80px rgba(0,0,0,.8);
+    }
+    #chess-login-modal.vip-login .login-icon { filter:drop-shadow(0 0 16px rgba(255,215,0,.6)); }
+    #chess-login-modal.vip-login #login-btn { background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b); color:#1a1000; }
+
+    /* ─── ARROW SVG ─────────────────────────────────────────── */
+    .hint-arrow-svg {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none; z-index:9999;
+    }
+    .hint-arrow-line {
+      stroke-dasharray:200;
+      stroke-dashoffset:200;
+      animation:arrow-draw .4s ease forwards;
+    }
+  \`);
+
+  // ─── TOAST ──────────────────────────────────────────────────
+  function showToast(msg, type = 'warn', duration = 4000) {
+    let toast = document.getElementById('hint-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'hint-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.className = \`toast-\${type} show\`;
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      setTimeout(() => { toast.className = ''; toast.style.display = 'none'; }, 350);
+    }, duration);
+  }
+
+  // ─── EXPIRY BAR ──────────────────────────────────────────────
+  function updateExpiryBar() {
+    const bar = document.getElementById('key-expiry-bar');
+    if (!bar) return;
+
+    if (!keyExpiresAt) {
+      bar.innerHTML = \`<span class="\${isVIP ? 'expiry-vip' : 'expiry-ok'}">
+        \${isVIP ? '★ VIP — Không giới hạn' : '✓ Key hợp lệ'}
+      </span>\`;
+      return;
+    }
+
+    const expDate = new Date(keyExpiresAt);
+    const ms   = expDate - Date.now();
+    const days = Math.ceil(ms / 86400000);
+
+    // Format HSD like server: DD/MM/YYYY HH:MM
+    const pad = n => String(n).padStart(2,'0');
+    const hsd = \`\${pad(expDate.getDate())}/\${pad(expDate.getMonth()+1)}/\${expDate.getFullYear()} \${pad(expDate.getHours())}:\${pad(expDate.getMinutes())}\`;
+
+    if (ms < 0) {
+      bar.innerHTML = \`<span class="expiry-warn">⚠ Key đã hết hạn</span>\`;
+    } else {
+      const cls = days <= 3 ? 'expiry-warn' : (isVIP ? 'expiry-vip' : 'expiry-ok');
+      const icon = isVIP ? '★ VIP' : '✓';
+      bar.innerHTML = \`<span class="\${cls}">\${icon} HSD: \${hsd}</span>\`;
+    }
+  }
+
+  // ─── VERIFY KEY ───────────────────────────────────────────────
+  function verifyKeyWithServer(key, callback) {
+    try {
+      GM_xmlhttpRequest({
+        method  : 'GET',
+        url     : \`\${SERVER_URL}/api/verify?key=\${encodeURIComponent(key)}&app=\${encodeURIComponent(APP_ID)}\`,
+        timeout : 12000,
+        onload  : (res) => {
+          try { callback(JSON.parse(res.responseText)); }
+          catch (_) { callback({ valid: false, reason: 'server_error' }); }
+        },
+        onerror : () => callback({ valid: false, reason: 'network_error' }),
+        ontimeout: () => callback({ valid: false, reason: 'timeout' }),
+      });
+    } catch (e) {
+      fetch(\`\${SERVER_URL}/api/verify?key=\${encodeURIComponent(key)}&app=\${encodeURIComponent(APP_ID)}\`)
+        .then(r => r.json())
+        .then(data => callback(data))
+        .catch(() => callback({ valid: false, reason: 'network_error' }));
+    }
+  }
+
+  // ─── KEY POLLING (check expiry / ban while running) ───────────
+  // Kiểm tra key mỗi 60 giây. Nếu key hết hạn hoặc bị ban:
+  // 1) Hiện thông báo lỗi
+  // 2) Xoá key đã lưu
+  // 3) Tự động load lại trang chess.com (location.href thay vì reload
+  //    để đảm bảo trang khởi động sạch, hiện lại modal nhập key)
+  function startKeyPolling() {
+    setInterval(() => {
+      if (!userKey || !isAuthenticated) return;
+      verifyKeyWithServer(userKey, (result) => {
+        if (result.valid) {
+          // Key vẫn hợp lệ — cập nhật thời hạn nếu server trả về
+          if (result.expiresAt) keyExpiresAt = result.expiresAt;
+          updateExpiryBar();
+          return;
+        }
+
+        // Key hết hạn hoặc bị ban
+        isAuthenticated = false; // ngăn vòng lặp check tiếp
+        const reason = result.reason || 'unknown';
+        let msg = '';
+        if (reason === 'expired') {
+          msg = '⚠️ Key của bạn đã hết hạn. Trang sẽ tự load lại để nhập key mới.';
+        } else if (reason === 'banned') {
+          msg = '🚫 Key của bạn đã bị khoá. Liên hệ shop để được hỗ trợ.';
+        } else {
+          msg = \`⚠️ Key không hợp lệ (\${reason}). Trang sẽ tự load lại.\`;
+        }
+
+        showToast(msg, 'error', 5000);
+        try { GM_setValue('chess_hint_key', ''); } catch (_) {}
+        // Sau 4 giây tự load lại trang chess.com để hiện modal nhập key mới
+        setTimeout(() => {
+          window.location.href = window.location.href;
+        }, 4000);
+      });
+    }, 60000); // kiểm tra mỗi 60 giây
+  }
+
+  // ─── LOGIN MODAL ───────────────────────────────────────────────
+  function createLoginModal() {
+    const overlay = document.createElement('div');
+    overlay.id = 'chess-login-overlay';
+    overlay.innerHTML = \`
+      <div id="chess-login-modal">
+        <div class="login-icon">♟️</div>
+        <div class="login-title">Chess Hint 2200+ ELO</div>
+        <div class="login-subtitle">Nhập key để kích hoạt tính năng gợi ý nước đi thông minh</div>
+        <div class="key-types-hint">
+          <span class="key-type-badge normal">● Key Thường</span>
+          <span class="key-type-badge premium">★ Key VIP</span>
+        </div>
+        <div class="login-input-wrap">
+          <span class="input-icon">🔑</span>
+          <input type="text" id="login-key-input" placeholder="Nhập key của bạn..."
+            autocomplete="off" spellcheck="false"/>
+        </div>
+        <button id="login-btn" type="button">
+          <span class="btn-text">✔ Xác Thực Key</span>
+          <span class="btn-spinner"></span>
+        </button>
+        <div id="login-error"></div>
+        <div class="login-footer">
+          Mua key tại <a href="\${SERVER_URL}" target="_blank">server của shop</a>
+        </div>
+      </div>
+    \`;
+    document.body.appendChild(overlay);
+
+    setTimeout(() => {
+      const inp = document.getElementById('login-key-input');
+      if (inp) inp.focus();
+      if (userKey && inp) inp.value = userKey;
+    }, 100);
+
+    document.getElementById('login-key-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
+    return overlay;
+  }
+
+  function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('visible');
+    const modal = document.getElementById('chess-login-modal');
+    if (modal) {
+      modal.classList.add('shake');
+      setTimeout(() => modal.classList.remove('shake'), 450);
+    }
+  }
+
+  function setLoginLoading(loading) {
+    const btn = document.getElementById('login-btn');
+    if (!btn) return;
+    btn.classList.toggle('loading', loading);
+    btn.disabled = loading;
+  }
+
+  function handleLogin() {
+    const inp = document.getElementById('login-key-input');
+    const key = (inp ? inp.value : '').trim();
+    if (!key) { showLoginError('Vui lòng nhập key.'); return; }
+
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.classList.remove('visible');
+    setLoginLoading(true);
+
+    verifyKeyWithServer(key, (result) => {
+      setLoginLoading(false);
+
+      if (!result.valid) {
+        const reasonMap = {
+          key_not_found       : 'Key không tồn tại.',
+          expired             : 'Key đã hết hạn.',
+          banned              : 'Key đã bị khoá.',
+          device_limit_exceeded: 'Vượt quá số thiết bị cho phép.',
+          app_denied          : 'App chưa được cấp phép.',
+          app_pending_approval: 'App đang chờ duyệt.',
+          rate_limited        : 'Quá nhiều yêu cầu, thử lại sau.',
+        };
+        showLoginError(reasonMap[result.reason] || \`Key không hợp lệ (\${result.reason || 'unknown'})\`);
+        return;
+      }
+
+      userKey         = key;
+      isVIP           = (result.type === 'premium');
+      keyExpiresAt    = result.expiresAt || null;
+      isAuthenticated = true;
+
+      // Lưu key — lần sau sẽ auto xác thực, không hỏi lại
+      try { GM_setValue('chess_hint_key', key); } catch (_) {}
+
+      // Gọi API để server ghi nhận thiết bị → device count = 1/1
+      registerDevice(key);
+
+      if (isVIP) {
+        const modal = document.getElementById('chess-login-modal');
+        if (modal) modal.classList.add('vip-login');
+      }
+
+      setTimeout(() => {
+        const overlay = document.getElementById('chess-login-overlay');
+        if (overlay) overlay.remove();
+        startApp();
+      }, 350);
+    });
+  }
+
+  // Đăng ký thiết bị với server để hiện 1/1
+  function registerDevice(key) {
+    const deviceId = getOrCreateDeviceId();
+    try {
+      GM_xmlhttpRequest({
+        method: 'POST',
+        url: \`\${SERVER_URL}/api/device/register\`,
+        headers: { 'Content-Type': 'application/json' },
+        data: JSON.stringify({ key, deviceId, app: APP_ID }),
+        timeout: 8000,
+        onload: () => {},
+        onerror: () => {},
+      });
+    } catch (_) {
+      // Fallback
+      fetch(\`\${SERVER_URL}/api/device/register\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, deviceId, app: APP_ID }),
+      }).catch(() => {});
+    }
+  }
+
+  function getOrCreateDeviceId() {
+    let id = '';
+    try { id = GM_getValue('deviceId', ''); } catch (_) {}
+    if (!id) {
+      id = 'dev_' + Math.random().toString(36).slice(2,10) + '_' + Date.now();
+      try { GM_setValue('deviceId', id); } catch (_) {}
+    }
+    return id;
+  }
+
+  // ─── CREATE PANEL ─────────────────────────────────────────────
+  function createPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'chess-hint-panel';
+    if (isVIP) panel.classList.add('vip-panel');
+
+    const eloVal = isVIP ? '2200+ ELO' : '2000+ ELO';
+
+    // Build color swatches HTML
+    const swatchHtml = ARROW_COLORS.map((c, i) => \`
+      <span class="arrow-color-dot \${i === arrowColorIndex ? 'selected' : ''}"
+        data-idx="\${i}"
+        title="\${c.name}"
+        style="background:\${c.hex};">
+      </span>
+    \`).join('');
+
+    panel.innerHTML = \`
+      <div id="hint-pos-tooltip">x: 0, y: 0</div>
+
+      <div id="chess-hint-drag-handle">
+        <div style="display:flex;align-items:center;gap:6px;pointer-events:none;">
+          <div id="drag-dots"><i></i><i></i><i></i></div>
+          <span>⠿ GỢI Ý NƯỚC ĐI</span>
+        </div>
+        <button id="hint-collapse-btn" title="Ẩn/hiện menu">▲</button>
+      </div>
+      <div id="hint-mini-badge">● Đang chạy</div>
+
+      <div id="chess-hint-body">
+
+        <!-- VIP Badge -->
+        <div id="vip-badge" class="\${isVIP ? 'visible' : ''}">
+          <span class="vip-star">★</span> VIP PREMIUM <span class="vip-star">★</span>
+        </div>
+
+        <!-- Key expiry (hiện HSD đầy đủ) -->
+        <div id="key-expiry-bar"></div>
+
+        <h3>Move Hint</h3>
+
+        <!-- Engine ELO -->
+        <div id="elo-indicator">
+          <span class="elo-label">🧠 Sức mạnh engine</span>
+          <span class="elo-value">\${eloVal}</span>
+        </div>
+
+        <!-- Toggle -->
+        <div class="hint-toggle-row">
+          <span class="hint-toggle-label">Bật gợi ý nước đi</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hint-main-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Chọn bên -->
+        <div class="side-label">Gợi ý cho bên:</div>
+        <div class="side-buttons">
+          <button class="side-btn white-btn active" id="btn-white">♔ Trắng</button>
+          <button class="side-btn black-btn" id="btn-black">♚ Đen</button>
+        </div>
+
+        <!-- Màu mũi tên -->
+        <div id="arrow-color-row">
+          <span id="arrow-color-label">🎨 Màu mũi tên:</span>
+          <div id="arrow-color-swatch-wrap">\${swatchHtml}</div>
+        </div>
+
+        <!-- Depth -->
+        <div class="depth-row">
+          <span class="depth-label">Độ sâu (depth):</span>
+          <select class="depth-select" id="depth-select">
+            <option value="15">15 — Nhanh</option>
+            <option value="18">18 — Cân bằng</option>
+            <option value="20" selected>20 — Mạnh</option>
+            <option value="22">22 — Rất mạnh</option>
+            \${isVIP ? '<option value="25">25 — VIP Max</option>' : ''}
+          </select>
+        </div>
+
+        <!-- MultiPV -->
+        <div class="depth-row">
+          <span class="depth-label">Số nước gợi ý:</span>
+          <select class="depth-select" id="multipv-select">
+            <option value="1">1 nước</option>
+            <option value="3" selected>3 nước</option>
+            \${isVIP ? '<option value="5">5 nước (VIP)</option>' : ''}
+          </select>
+        </div>
+
+        <!-- Move list -->
+        <div id="hint-moves-list"></div>
+
+        <!-- Status -->
+        <div id="hint-status">Sẵn sàng</div>
+
+        <!-- Auto Ván Mới -->
+        <div id="auto-new-game-row">
+          <div class="ang-label-wrap">
+            <span class="ang-title">🔄 Auto Ván Mới</span>
+            <span class="ang-sub" id="ang-sub-text">Chỉ auto ở ván đầu tiên</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="auto-new-game-toggle" \${autoNewGame ? 'checked' : ''}>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Đổi Key -->
+        <button id="btn-logout">🔓 Đổi Key</button>
+      </div>
+    \`;
+
+    document.body.appendChild(panel);
+    restorePanelPosition(panel);
+    updateExpiryBar();
+    return panel;
+  }
+
+  // ─── SAVE / RESTORE POSITION ───────────────────────────────────
+  function savePanelPosition(panel) {
+    try {
+      GM_setValue('panelX', panel.style.left || '');
+      GM_setValue('panelY', panel.style.top  || '');
+      GM_setValue('panelRight', panel.style.right || '');
+    } catch (_) {}
+  }
+
+  function restorePanelPosition(panel) {
+    try {
+      const savedX     = GM_getValue('panelX', '');
+      const savedY     = GM_getValue('panelY', '');
+      const savedRight = GM_getValue('panelRight', '');
+      if (savedX) { panel.style.left = savedX; panel.style.right = 'auto'; }
+      if (savedY) panel.style.top = savedY;
+      if (!savedX && savedRight) panel.style.right = savedRight;
+    } catch (_) {}
+  }
+
+  // ─── DRAG ──────────────────────────────────────────────────────
+  function makeDraggable(panel) {
+    const handle      = panel.querySelector('#chess-hint-drag-handle');
+    const collapseBtn = panel.querySelector('#hint-collapse-btn');
+    const posTooltip  = panel.querySelector('#hint-pos-tooltip');
+    let isDragging = false, startX, startY, origLeft, origTop;
+
+    function getClientPos(e) {
+      if (e.touches && e.touches.length > 0)
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function clampToViewport(left, top, w, h) {
+      const vw = window.innerWidth, vh = window.innerHeight, m = 8;
+      return {
+        left: Math.max(m, Math.min(left, vw - w - m)),
+        top:  Math.max(m, Math.min(top,  vh - h - m)),
+      };
+    }
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target === collapseBtn || collapseBtn.contains(e.target)) return;
+      isDragging = true;
+      const pos = getClientPos(e);
+      startX = pos.x; startY = pos.y;
+      const r = panel.getBoundingClientRect();
+      origLeft = r.left; origTop = r.top;
+      panel.classList.add('is-dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const pos = getClientPos(e);
+      const { left, top } = clampToViewport(
+        origLeft + pos.x - startX, origTop + pos.y - startY,
+        panel.offsetWidth, panel.offsetHeight
+      );
+      panel.style.left = left + 'px'; panel.style.top = top + 'px'; panel.style.right = 'auto';
+      if (posTooltip) posTooltip.textContent = \`x: \${Math.round(left)}, y: \${Math.round(top)}\`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      panel.classList.remove('is-dragging');
+      savePanelPosition(panel);
+    });
+
+    handle.addEventListener('touchstart', (e) => {
+      if (e.target === collapseBtn || collapseBtn.contains(e.target)) return;
+      isDragging = true;
+      const pos = getClientPos(e);
+      startX = pos.x; startY = pos.y;
+      const r = panel.getBoundingClientRect();
+      origLeft = r.left; origTop = r.top;
+      panel.classList.add('is-dragging');
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const pos = getClientPos(e);
+      const { left, top } = clampToViewport(
+        origLeft + pos.x - startX, origTop + pos.y - startY,
+        panel.offsetWidth, panel.offsetHeight
+      );
+      panel.style.left = left + 'px'; panel.style.top = top + 'px'; panel.style.right = 'auto';
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      panel.classList.remove('is-dragging');
+      savePanelPosition(panel);
+    });
+  }
+
+  // ─── COLLAPSE ──────────────────────────────────────────────────
+  function setupCollapse(panel) {
+    const collapseBtn = panel.querySelector('#hint-collapse-btn');
+    const body        = panel.querySelector('#chess-hint-body');
+    const miniBadge   = panel.querySelector('#hint-mini-badge');
+    let isCollapsed = false;
+    try { isCollapsed = GM_getValue('panelCollapsed', false); } catch (_) {}
+
+    function applyCollapse(animate) {
+      if (!animate) {
+        body.style.transition = 'none';
+        requestAnimationFrame(() => { body.style.transition = ''; });
+      }
+      if (isCollapsed) {
+        body.classList.add('collapsed');
+        panel.classList.add('panel-collapsed');
+        collapseBtn.textContent = '▼';
+        collapseBtn.classList.add('collapsed-arrow');
+        collapseBtn.title = 'Mở rộng menu';
+        if (miniBadge) miniBadge.textContent = hintEnabled
+          ? \`● Bên \${selectedSide === 'white' ? 'Trắng' : 'Đen'} · depth \${analysisDepth}\`
+          : '○ Đang tắt';
+      } else {
+        body.classList.remove('collapsed');
+        panel.classList.remove('panel-collapsed');
+        collapseBtn.textContent = '▲';
+        collapseBtn.classList.remove('collapsed-arrow');
+        collapseBtn.title = 'Ẩn menu';
+      }
+    }
+
+    applyCollapse(false);
+
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isCollapsed = !isCollapsed;
+      applyCollapse(true);
+      try { GM_setValue('panelCollapsed', isCollapsed); } catch (_) {}
+    });
+
+    return function updateBadge() {
+      if (!isCollapsed || !miniBadge) return;
+      miniBadge.textContent = hintEnabled
+        ? \`● Bên \${selectedSide === 'white' ? 'Trắng' : 'Đen'} · depth \${analysisDepth}\`
+        : '○ Đang tắt';
+    };
+  }
+
+  // ─── STOCKFISH ─────────────────────────────────────────────────
+  const SF_CDN_URLS = [
+    'https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16.js',
+    'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js',
+  ];
+  let engineInitialized = false;
+
+  function initStockfish() {
+    if (stockfish) return;
+    tryLoadEngine(0);
+  }
+
+  function tryLoadEngine(idx) {
+    if (idx >= SF_CDN_URLS.length) { setStatus('Không tải được engine', 'error'); return; }
+    try {
+      const url  = SF_CDN_URLS[idx];
+      const blob = new Blob([\`importScripts('\${url}');\`], { type: 'application/javascript' });
+      stockfish  = new Worker(URL.createObjectURL(blob));
+
+      stockfish.onmessage = (e) => handleEngineMessage(e.data);
+      stockfish.onerror   = () => {
+        console.warn('[MoveHint] Engine failed, trying next CDN…');
+        stockfish = null; tryLoadEngine(idx + 1);
+      };
+
+      stockfish.postMessage('uci');
+      stockfish.postMessage('setoption name Hash value 128');
+      stockfish.postMessage('setoption name Threads value 2');
+      stockfish.postMessage('setoption name MultiPV value ' + multiPV);
+      stockfish.postMessage('setoption name Use NNUE value true');
+      stockfish.postMessage('setoption name Move Overhead value 0');
+      stockfish.postMessage('isready');
+    } catch (err) {
+      console.warn('[MoveHint] Worker init error:', err);
+      tryLoadEngine(idx + 1);
+    }
+  }
+
+  // ─── ENGINE OUTPUT ─────────────────────────────────────────────
+  let pendingMoves = {}, lastInfoTime = 0, renderTimer = null;
+
+  function handleEngineMessage(msg) {
+    if (!msg) return;
+
+    if (msg === 'readyok') {
+      isEngineReady = true; engineInitialized = true;
+      setStatus('Engine 2000+ ELO ✓');
+      return;
+    }
+    if (msg.includes('uciok')) { isEngineReady = true; return; }
+
+    if (msg.startsWith('info') && msg.includes('pv') && msg.includes('score')) {
+      const pvMatch    = msg.match(/multipv (\\d+)/);
+      const moveMatch  = msg.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+      const depthMatch = msg.match(/depth (\\d+)/);
+      const cpMatch    = msg.match(/score cp (-?\\d+)/);
+      const mateMatch  = msg.match(/score mate (-?\\d+)/);
+      if (!moveMatch) return;
+
+      const pvIdx = pvMatch ? parseInt(pvMatch[1]) : 1;
+      const move  = moveMatch[1];
+      const depth = depthMatch ? parseInt(depthMatch[1]) : 0;
+      let score   = null, mate = null;
+
+      if (mateMatch) {
+        mate = parseInt(mateMatch[1]);
+      } else if (cpMatch) {
+        const cp   = parseInt(cpMatch[1]);
+        const turn = (currentFen.split(' ')[1] || 'w');
+        score      = turn === 'w' ? cp / 100 : -cp / 100;
+      }
+
+      pendingMoves[pvIdx] = { move, score, mate, depth };
+      lastInfoTime = Date.now();
+      if (renderTimer) clearTimeout(renderTimer);
+      renderTimer = setTimeout(() => renderMoveList(), 80);
+      return;
+    }
+
+    if (msg.startsWith('bestmove')) {
+      const parts    = msg.split(' ');
+      const bestMove = parts[1];
+      if (bestMove && bestMove !== '(none)') {
+        if (!pendingMoves[1]) pendingMoves[1] = { move: bestMove, score: null, mate: null };
+        renderMoveList();
+        const m = pendingMoves[1] ? pendingMoves[1].move : bestMove;
+        drawArrow(m.slice(0,2), m.slice(2,4));
+      } else {
+        setStatus('Không có nước đi hợp lệ', 'error');
+      }
+      pendingMoves = {};
+    }
+  }
+
+  function renderMoveList() {
+    const list = document.getElementById('hint-moves-list');
+    if (!list) return;
+
+    const moves = Object.entries(pendingMoves)
+      .sort(([a],[b]) => parseInt(a) - parseInt(b))
+      .map(([idx,data]) => ({ rank: parseInt(idx), ...data }));
+
+    if (!moves.length) return;
+
+    const top = moves[0];
+    if (top.mate !== null) {
+      setStatus(\`Chiếu hết trong \${Math.abs(top.mate)} nước\`);
+    } else if (top.score !== null) {
+      const sign = top.score > 0 ? '+' : '';
+      setStatus(\`Nước tốt nhất: \${top.move.toUpperCase()} (\${sign}\${top.score.toFixed(2)})\`);
+    } else {
+      setStatus(\`Nước tốt nhất: \${top.move.toUpperCase()}\`);
+    }
+
+    list.innerHTML = moves.map(m => {
+      let scoreHtml = '';
+      if (m.mate !== null) {
+        scoreHtml = \`<span class="move-score mate">M\${Math.abs(m.mate)}</span>\`;
+      } else if (m.score !== null) {
+        const sign = m.score > 0 ? '+' : '';
+        const cls  = m.score < 0 ? 'negative' : '';
+        scoreHtml  = \`<span class="move-score \${cls}">\${sign}\${m.score.toFixed(2)}</span>\`;
+      }
+      return \`
+        <div class="move-item" data-move="\${m.move}" title="Click để highlight nước đi này">
+          <span class="move-rank rank-\${m.rank}">\${m.rank}</span>
+          <span class="move-uci">\${m.move.toUpperCase()}</span>
+          \${scoreHtml}
+        </div>\`;
+    }).join('');
+
+    list.querySelectorAll('.move-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const mv = item.dataset.move;
+        if (mv && mv.length >= 4) drawArrow(mv.slice(0,2), mv.slice(2,4));
+      });
+    });
+  }
+
+  // ─── ANALYZE ──────────────────────────────────────────────────
+  let analysisTimeout = null;
+
+  function analyzePosition() {
+    if (!hintEnabled || !isEngineReady || !stockfish) return;
+
+    const fen = getCurrentFen();
+    if (!fen) { setStatus('Không đọc được bàn cờ', 'error'); return; }
+
+    const fenTurn = fen.split(' ')[1];
+    const mySide  = selectedSide === 'white' ? 'w' : 'b';
+
+    if (fenTurn && fenTurn !== mySide) {
+      setStatus(\`Chờ lượt \${selectedSide === 'white' ? 'Trắng ♔' : 'Đen ♚'}...\`, 'thinking');
+      clearArrow(); return;
+    }
+    if (fen === currentFen) return;
+    currentFen = fen;
+
+    setStatus('Đang phân tích...', 'thinking');
+    clearArrow();
+    pendingMoves = {};
+
+    stockfish.postMessage('setoption name MultiPV value ' + multiPV);
+    stockfish.postMessage('stop');
+    stockfish.postMessage(\`position fen \${fen}\`);
+    const moveTimeMs = isVIP ? 3000 : 1500;
+    stockfish.postMessage(\`go depth \${analysisDepth} movetime \${moveTimeMs}\`);
+  }
+
+  // ─── DRAW ARROW ───────────────────────────────────────────────
+  function squareToCoords(sq) {
+    const fileMap = { a:1, b:2, c:3, d:4, e:5, f:6, g:7, h:8 };
+    return { file: fileMap[sq[0]], rank: parseInt(sq[1]) };
+  }
+
+  function drawArrow(from, to) {
+    clearArrow();
+    const board = document.querySelector('.board') || document.querySelector('chess-board');
+    if (!board) return;
+
+    const boardRect  = board.getBoundingClientRect();
+    const squareSize = boardRect.width / 8;
+    const isFlipped  = board.classList.contains('flipped') ||
+                       board.getAttribute('flipped') !== null ||
+                       board.getAttribute('board-orientation') === 'black';
+
+    const { file: ff, rank: fr } = squareToCoords(from);
+    const { file: tf, rank: tr } = squareToCoords(to);
+
+    function toPixel(file, rank) {
+      return isFlipped
+        ? { x: (9 - file - 0.5) * squareSize, y: (rank - 0.5) * squareSize }
+        : { x: (file - 0.5) * squareSize,      y: (9 - rank - 0.5) * squareSize };
+    }
+
+    const p1 = toPixel(ff, fr);
+    const p2 = toPixel(tf, tr);
+
+    // Lấy màu từ người dùng chọn
+    const color    = ARROW_COLORS[arrowColorIndex].hex;
+    const glow     = color + '44';
+    const markerId = 'hint-arrowhead-custom';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('hint-arrow-svg');
+
+    const defs   = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', markerId);
+    marker.setAttribute('markerWidth', '4');
+    marker.setAttribute('markerHeight', '4');
+    marker.setAttribute('refX', '2');
+    marker.setAttribute('refY', '2');
+    marker.setAttribute('orient', 'auto');
+    const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrowPath.setAttribute('d', 'M 0 0 L 4 2 L 0 4 z');
+    arrowPath.setAttribute('fill', color);
+    marker.appendChild(arrowPath);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    // VIP: glow line behind
+    if (isVIP) {
+      const glowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      glowLine.setAttribute('x1', p1.x); glowLine.setAttribute('y1', p1.y);
+      glowLine.setAttribute('x2', p2.x); glowLine.setAttribute('y2', p2.y);
+      glowLine.setAttribute('stroke', color);
+      glowLine.setAttribute('stroke-width', squareSize * 0.28);
+      glowLine.setAttribute('stroke-opacity', '0.18');
+      glowLine.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(glowLine);
+    }
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.classList.add('hint-arrow-line');
+    line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+    line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', squareSize * 0.18);
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('marker-end', \`url(#\${markerId})\`);
+    svg.appendChild(line);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', p1.x); circle.setAttribute('cy', p1.y);
+    circle.setAttribute('r',  squareSize * 0.2);
+    circle.setAttribute('fill', glow);
+    circle.setAttribute('stroke', color);
+    circle.setAttribute('stroke-width', '2');
+    svg.appendChild(circle);
+
+    board.style.position = board.style.position || 'relative';
+    board.appendChild(svg);
+    hintArrow = svg;
+  }
+
+  function clearArrow() {
+    if (hintArrow) { hintArrow.remove(); hintArrow = null; }
+  }
+
+  // ─── STATUS ────────────────────────────────────────────────────
+  function setStatus(msg, type = '') {
+    const el = document.getElementById('hint-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = '';
+    if (type === 'thinking') el.classList.add('thinking');
+    if (type === 'error')    el.classList.add('error');
+  }
+
+  // ─── FEN ───────────────────────────────────────────────────────
+  function getCurrentFen() {
+    const gameEl = document.querySelector('.board');
+    if (!gameEl) return null;
+    const fromInstance = getBoardInstance();
+    if (fromInstance) return fromInstance;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('fen')) return urlParams.get('fen');
+    return parseBoardFromDOM();
+  }
+
+  function getBoardInstance() {
+    const win = (typeof unsafeWindow !== 'undefined' ? unsafeWindow : window);
+    const candidates = [win.chessboard, win.game, win.currentGame, win.gameSetup];
+    for (const obj of candidates) {
+      if (!obj) continue;
+      if (typeof obj.getFen === 'function') return obj.getFen();
+      if (obj.fen && typeof obj.fen === 'string') return obj.fen;
+      if (obj.game  && typeof obj.game.fen  === 'function') return obj.game.fen();
+      if (obj.chess && typeof obj.chess.fen === 'function') return obj.chess.fen();
+    }
+    for (const key of Object.keys(win)) {
+      try {
+        const v = win[key];
+        if (v && typeof v === 'object' && typeof v.fen === 'function') {
+          const fen = v.fen();
+          if (fen && fen.includes('/')) return fen;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function parseBoardFromDOM() {
+    const board = document.querySelector('.board') || document.querySelector('chess-board');
+    if (!board) return null;
+    const pieceMap = {
+      'wp':'P','wr':'R','wn':'N','wb':'B','wq':'Q','wk':'K',
+      'bp':'p','br':'r','bn':'n','bb':'b','bq':'q','bk':'k',
+    };
+    const grid  = {};
+    const pieces = board.querySelectorAll('[class*="piece"]');
+    for (const p of pieces) {
+      const cls = [...p.classList];
+      let pieceType = null, square = null;
+      for (const c of cls) {
+        if (pieceMap[c]) pieceType = pieceMap[c];
+        const sqMatch = c.match(/^square-([1-8])([1-8])$/);
+        if (sqMatch) square = { file: parseInt(sqMatch[1]), rank: parseInt(sqMatch[2]) };
+      }
+      if (pieceType && square) grid[\`\${square.file}-\${square.rank}\`] = pieceType;
+    }
+    if (Object.keys(grid).length < 4) return null;
+    let fen = '';
+    for (let rank = 8; rank >= 1; rank--) {
+      let empty = 0;
+      for (let file = 1; file <= 8; file++) {
+        const pc = grid[\`\${file}-\${rank}\`];
+        if (pc) { if (empty) { fen += empty; empty = 0; } fen += pc; }
+        else    { empty++; }
+      }
+      if (empty) fen += empty;
+      if (rank > 1) fen += '/';
+    }
+    const turn = determineTurn() || (selectedSide === 'white' ? 'w' : 'b');
+    fen += \` \${turn} KQkq - 0 1\`;
+    return fen;
+  }
+
+  function determineTurn() {
+    const turnEl = document.querySelector('[class*="turn"], [class*="active-player"]');
+    if (turnEl) {
+      const text = turnEl.className + turnEl.textContent;
+      if (text.toLowerCase().includes('white') || text.includes(' w ')) return 'w';
+      if (text.toLowerCase().includes('black') || text.includes(' b ')) return 'b';
+    }
+    return null;
+  }
+
+  // ─── AUTO VÁN MỚI ─────────────────────────────────────────────
+  // Phát hiện ván kết thúc: tìm nút "New Game" / "Rematch" / overlay kết quả
+  function isGameOver() {
+    // Kiểm tra overlay kết thúc ván phổ biến trên chess.com
+    const selectors = [
+      '[class*="game-over"]',
+      '[class*="gameOver"]',
+      '[class*="result-modal"]',
+      '[class*="ResultModal"]',
+      '[data-cy="game-result"]',
+      '.game-result',
+      '[class*="game-result"]',
+    ];
+    for (const s of selectors) {
+      if (document.querySelector(s)) return true;
+    }
+    return false;
+  }
+
+  function clickNewGame() {
+    // Danh sách selector nút "Ván mới" / "New Game" trên chess.com
+    const btnSelectors = [
+      '[data-cy="new-game-button"]',
+      '[class*="new-game"]',
+      'button[class*="newGame"]',
+      'button[class*="NewGame"]',
+      '.new-game-button',
+    ];
+    for (const s of btnSelectors) {
+      const btn = document.querySelector(s);
+      if (btn) { btn.click(); return true; }
+    }
+
+    // Fallback: tìm nút chứa text "New Game" / "Ván mới"
+    const allBtns = Array.from(document.querySelectorAll('button, [role="button"]'));
+    const found = allBtns.find(b => {
+      const t = b.textContent.trim().toLowerCase();
+      return t === 'new game' || t === 'ván mới' || t === 'play again';
+    });
+    if (found) { found.click(); return true; }
+    return false;
+  }
+
+  function startAutoNewGameWatcher() {
+    if (gameOverWatcher) return; // đã chạy rồi
+
+    gameOverWatcher = setInterval(() => {
+      if (!autoNewGame) {
+        // Toggle bị tắt → dừng watcher
+        clearInterval(gameOverWatcher);
+        gameOverWatcher = null;
+        return;
+      }
+
+      if (autoNewGameUsed) {
+        // Đã dùng rồi (ván đầu đã auto) → dừng watcher
+        clearInterval(gameOverWatcher);
+        gameOverWatcher = null;
+        updateAutoNewGameSubText();
+        return;
+      }
+
+      if (isGameOver()) {
+        // Ván đầu tiên kết thúc → auto bấm New Game
+        setTimeout(() => {
+          if (clickNewGame()) {
+            autoNewGameUsed = true;
+            updateAutoNewGameSubText();
+            clearInterval(gameOverWatcher);
+            gameOverWatcher = null;
+            showToast('🔄 Đã tự động vào ván mới!', 'success', 3000);
+          }
+        }, 1200); // đợi 1.2s cho animation kết thúc ván hiện ra đủ
+      }
+    }, 1500);
+  }
+
+  function stopAutoNewGameWatcher() {
+    if (gameOverWatcher) {
+      clearInterval(gameOverWatcher);
+      gameOverWatcher = null;
+    }
+  }
+
+  function updateAutoNewGameSubText() {
+    const sub = document.getElementById('ang-sub-text');
+    const row = document.getElementById('auto-new-game-row');
+    if (!sub || !row) return;
+    if (!autoNewGame) {
+      sub.textContent = 'Chỉ auto ở ván đầu tiên';
+      row.classList.remove('used');
+    } else if (autoNewGameUsed) {
+      sub.textContent = '✓ Đã auto ván đầu — các ván sau thủ công';
+      row.classList.add('used');
+    } else {
+      sub.textContent = 'Đang chờ ván đầu kết thúc...';
+      row.classList.remove('used');
+    }
+  }
+
+  // ─── BOARD WATCHER ─────────────────────────────────────────────
+  function startBoardWatcher() {
+    const observer = new MutationObserver(() => {
+      if (hintEnabled) analyzePosition();
+    });
+    function attachObserver() {
+      const board = document.querySelector('.board') ||
+                    document.querySelector('chess-board') ||
+                    document.querySelector('[class*="board"]');
+      if (board) {
+        observer.observe(board, { childList:true, subtree:true, attributes:true });
+        console.log('[MoveHint v4] Board observer attached ✓');
+      } else { setTimeout(attachObserver, 1000); }
+    }
+    attachObserver();
+  }
+
+  // ─── START APP ─────────────────────────────────────────────────
+  function startApp() {
+    const panel      = createPanel();
+    makeDraggable(panel);
+    const updateBadge = setupCollapse(panel);
+
+    // Arrow color swatches
+    document.getElementById('arrow-color-swatch-wrap').addEventListener('click', (e) => {
+      const dot = e.target.closest('.arrow-color-dot');
+      if (!dot) return;
+      const idx = parseInt(dot.dataset.idx);
+      arrowColorIndex = idx;
+      try { GM_setValue('arrowColorIdx', String(idx)); } catch (_) {}
+      document.querySelectorAll('.arrow-color-dot').forEach((d, i) => {
+        d.classList.toggle('selected', i === idx);
+      });
+      // Nếu đang bật, vẽ lại mũi tên với màu mới
+      if (hintEnabled && currentFen) {
+        const bm = pendingMoves[1];
+        if (bm && bm.move && bm.move.length >= 4) {
+          drawArrow(bm.move.slice(0,2), bm.move.slice(2,4));
+        }
+      }
+    });
+
+    // Main toggle
+    const mainToggle = document.getElementById('hint-main-toggle');
+    mainToggle.addEventListener('change', () => {
+      hintEnabled = mainToggle.checked;
+      if (hintEnabled) {
+        initStockfish();
+        analyzePosition();
+        setStatus(\`Đang gợi ý cho bên \${selectedSide === 'white' ? 'Trắng ♔' : 'Đen ♚'}\`);
+      } else {
+        clearArrow();
+        setStatus('Tắt gợi ý');
+        if (stockfish) stockfish.postMessage('stop');
+      }
+      updateBadge();
+    });
+
+    // Side buttons
+    document.getElementById('btn-white').addEventListener('click', () => {
+      selectedSide = 'white';
+      document.getElementById('btn-white').classList.add('active');
+      document.getElementById('btn-black').classList.remove('active');
+      currentFen = ''; clearArrow();
+      if (hintEnabled) { analyzePosition(); setStatus('Đang gợi ý cho bên Trắng ♔'); }
+      updateBadge();
+    });
+
+    document.getElementById('btn-black').addEventListener('click', () => {
+      selectedSide = 'black';
+      document.getElementById('btn-black').classList.add('active');
+      document.getElementById('btn-white').classList.remove('active');
+      currentFen = ''; clearArrow();
+      if (hintEnabled) { analyzePosition(); setStatus('Đang gợi ý cho bên Đen ♚'); }
+      updateBadge();
+    });
+
+    // Depth
+    document.getElementById('depth-select').addEventListener('change', (e) => {
+      analysisDepth = parseInt(e.target.value);
+      currentFen = '';
+      if (hintEnabled) analyzePosition();
+      updateBadge();
+    });
+
+    // MultiPV
+    document.getElementById('multipv-select').addEventListener('change', (e) => {
+      multiPV = parseInt(e.target.value);
+      if (stockfish) stockfish.postMessage('setoption name MultiPV value ' + multiPV);
+      currentFen = '';
+      if (hintEnabled) analyzePosition();
+    });
+
+    // Đổi key
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      if (!confirm('Đổi key? Panel sẽ reload trang.')) return;
+      try { GM_setValue('chess_hint_key', ''); } catch (_) {}
+      location.reload();
+    });
+
+    // Auto Ván Mới toggle
+    const autoToggle = document.getElementById('auto-new-game-toggle');
+    // Khởi tạo trạng thái ban đầu theo giá trị đã lưu
+    updateAutoNewGameSubText();
+    if (autoNewGame && !autoNewGameUsed) startAutoNewGameWatcher();
+
+    autoToggle.addEventListener('change', () => {
+      autoNewGame     = autoToggle.checked;
+      autoNewGameUsed = false; // reset: bật lại = bắt đầu đếm từ ván đầu mới
+      try { GM_setValue('autoNewGame', autoNewGame); } catch (_) {}
+
+      if (autoNewGame) {
+        startAutoNewGameWatcher();
+        showToast('🔄 Auto Ván Mới: BẬT — sẽ auto vào ván mới sau ván đầu tiên', 'success', 3000);
+      } else {
+        stopAutoNewGameWatcher();
+        showToast('⏹ Auto Ván Mới: TẮT', 'warn', 2000);
+      }
+      updateAutoNewGameSubText();
+    });
+
+    startBoardWatcher();
+    startKeyPolling();
+
+    setInterval(() => { if (hintEnabled) analyzePosition(); }, 1200);
+
+    console.log('[MoveHint v6] Script loaded ✓ — VIP:', isVIP, '| AutoNewGame:', autoNewGame);
+  }
+
+  // ─── ENTRY ─────────────────────────────────────────────────────
+  function bootstrap() {
+    if (userKey) {
+      verifyKeyWithServer(userKey, (result) => {
+        if (result.valid) {
+          isVIP           = (result.type === 'premium');
+          keyExpiresAt    = result.expiresAt || null;
+          isAuthenticated = true;
+          // Ghi nhận thiết bị để server hiện 1/1
+          registerDevice(userKey);
+          startApp();
+        } else {
+          // Thông báo bằng tiếng Anh nếu hết hạn / bị ban
+          const r = result.reason || 'unknown';
+          if (r === 'expired') {
+            showToast('⚠️ Your key has expired. Please enter a new key.', 'error', 5000);
+          } else if (r === 'banned') {
+            showToast('🚫 Your key has been banned. Please contact support.', 'error', 5000);
+          }
+          // Xoá key cũ → hiện modal nhập lại
+          try { GM_setValue('chess_hint_key', ''); } catch (_) {}
+          userKey = '';
+          setTimeout(createLoginModal, 500);
+        }
+      });
+    } else {
+      createLoginModal();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(bootstrap, 1500));
+  } else {
+    setTimeout(bootstrap, 1500);
+  }
+
+})();
+`,
+    createdAt: '2026-07-07T00:00:00.000Z',
+    updatedAt: '2026-07-10T00:36:15.000Z'
+  }
 ];
 
 /* Build map ID → snippet để tra cứu O(1) — được build 1 lần khi khởi động */
