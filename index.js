@@ -7382,6 +7382,72 @@ function findGetKeyDuration(game, durationId){
 const CV_MAX_BYTES = 3 * 1024 * 1024; // 3MB mỗi đoạn code
 const CV_ALLOWED_LANGS = ['python', 'java', 'javascript', 'other'];
 
+/* ================================================================
+   DEFAULT CODE SNIPPETS — Hardcode snippet vào RAM
+   ----------------------------------------------------------------
+   Vì Render free tier dùng ephemeral filesystem (db.json bị xoá
+   sau mỗi lần restart/deploy), snippet upload qua web UI sẽ biến
+   mất sau khi server restart. Giải pháp: khai báo snippet mặc định
+   ngay trong code này — luôn có trong RAM dù server vừa khởi động.
+
+   CÁCH DÙNG:
+   1. Upload code lên trang /admin → Nạp code → ghi lại snippet ID
+   2. Thêm entry vào mảng DEFAULT_CODE_SNIPPETS bên dưới với đúng ID đó
+   3. Deploy lại server — từ đây snippet sẽ tồn tại vĩnh viễn trong RAM
+
+   Loader Violentmonkey dùng endpoint: /api/public/snippet/:id
+   (thay thế /api/admin/code-snippets/:id cũ)
+   ================================================================ */
+const DEFAULT_CODE_SNIPPETS = [
+  /* ── Thêm snippet của bạn vào đây ──────────────────────────────
+     {
+       id      : 'c50b71940c45af34',   // ID lấy từ trang admin
+       name    : 'chess_move_hint_v6', // tên hiển thị
+       language: 'javascript',
+       code    : `// Dán toàn bộ code script gốc vào đây`,
+       createdAt: '2026-07-07T00:00:00.000Z',
+       updatedAt: '2026-07-10T00:00:00.000Z'
+     },
+  ─────────────────────────────────────────────────────────────── */
+];
+
+/* Build map ID → snippet để tra cứu O(1) — được build 1 lần khi khởi động */
+const _defaultSnippetMap = Object.fromEntries(
+  DEFAULT_CODE_SNIPPETS.map(s => [s.id, s])
+);
+
+/* Sau khi db load xong, sync snippet mặc định vào db.codeSnippets
+   (để trang admin cũng thấy chúng, và để endpoint cũ /api/admin/code-snippets/:id
+   cũng trả về kết quả đúng thay vì 404) */
+function _syncDefaultSnippetsToDB(){
+  db.codeSnippets = db.codeSnippets || [];
+  for(const def of DEFAULT_CODE_SNIPPETS){
+    const existing = db.codeSnippets.find(s => s.id === def.id);
+    if(!existing){
+      // Thêm vào db nếu chưa có (vd: sau restart, db.json bị reset)
+      db.codeSnippets.push({
+        id       : def.id,
+        name     : def.name,
+        language : def.language || 'javascript',
+        code     : def.code,
+        sizeBytes: Buffer.byteLength(def.code || '', 'utf8'),
+        createdAt: def.createdAt || new Date().toISOString(),
+        updatedAt: def.updatedAt || new Date().toISOString()
+      });
+      console.log(`[KeyVault] Đã sync snippet mặc định vào db: ${def.id} (${def.name})`);
+    } else {
+      // Nếu đã có nhưng updatedAt của DEFAULT mới hơn → cập nhật code
+      if(def.updatedAt && existing.updatedAt && def.updatedAt > existing.updatedAt){
+        existing.code      = def.code;
+        existing.sizeBytes = Buffer.byteLength(def.code || '', 'utf8');
+        existing.updatedAt = def.updatedAt;
+        console.log(`[KeyVault] Đã cập nhật snippet mặc định: ${def.id} (${def.name})`);
+      }
+    }
+  }
+  if(DEFAULT_CODE_SNIPPETS.length > 0) saveDBNow();
+}
+
 /* ================= TELEGRAM BOT + MINI APP =================
    Kiến trúc: Mini App (trang /telegram) đăng nhập bằng dữ liệu Telegram WebApp (initData) —
    server tự XÁC THỰC chữ ký HMAC của initData bằng bot token (không tin dữ liệu client gửi
@@ -8556,7 +8622,9 @@ const server = http.createServer(async (req, res)=>{
     /* ---- Admin: xem chi tiết (kèm nội dung đầy đủ) hoặc xoá 1 đoạn code cụ thể ---- */
     const cvItemMatch = pathname.match(/^\/api\/admin\/code-snippets\/([a-f0-9]+)$/);
     if(cvItemMatch && req.method === 'GET'){
-      const snippet = (db.codeSnippets || []).find(s => s.id === cvItemMatch[1]);
+      // Tìm trong db trước, fallback sang RAM nếu db rỗng (sau Render restart)
+      let snippet = (db.codeSnippets || []).find(s => s.id === cvItemMatch[1]);
+      if(!snippet) snippet = _defaultSnippetMap[cvItemMatch[1]] || null;
       if(!snippet) return sendJSON(res, 404, { ok:false, error: 'not_found' });
       return sendJSON(res, 200, snippet);
     }
@@ -8937,6 +9005,97 @@ const server = http.createServer(async (req, res)=>{
       });
     }
 
+    /* ================================================================
+       PUBLIC SNIPPET LOADER — endpoint công khai cho Violentmonkey
+       Không cần xác thực, chỉ cần ID snippet đúng.
+       Ưu tiên tìm: RAM (defaultSnippetMap) → db.codeSnippets
+       → tránh mất data khi Render free tier xoá db.json khi restart.
+
+       Có 2 endpoint:
+         GET /api/public/snippet/:id         → trả toàn bộ { ok, code, name, updatedAt, checksum }
+         GET /api/public/snippet/:id/version → chỉ trả { ok, updatedAt, checksum } (nhẹ ~100B)
+           Loader dùng /version để kiểm tra xem có bản mới không trước khi tải lại toàn bộ code.
+       ================================================================ */
+
+    // ── Helper: tìm snippet theo id (RAM → db) ───────────────────────
+    function _findPublicSnippet(sid){
+      let s = _defaultSnippetMap[sid] || null;
+      if(!s) s = (db.codeSnippets || []).find(x => x.id === sid) || null;
+      return s;
+    }
+    // Helper: tính checksum SHA-256 (8 ký tự đầu) của code để loader so sánh nhanh
+    function _codeChecksum(code){
+      return crypto.createHash('sha256').update(code || '', 'utf8').digest('hex').slice(0, 16);
+    }
+    // Header CORS dùng chung
+    function _publicHeaders(res){
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-KV-Checksum');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+
+    // CORS preflight cho public snippet
+    if(pathname.startsWith('/api/public/') && req.method === 'OPTIONS'){
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,X-KV-Checksum'
+      });
+      return res.end();
+    }
+
+    /* ── GET /api/public/snippet/:id/version ─────────────────────────
+       Endpoint nhẹ — loader gọi mỗi lần trang load để biết có bản mới không.
+       Chỉ trả { ok, updatedAt, checksum } (~100B) thay vì toàn bộ code.
+       Nếu checksum khớp cache → không cần tải lại, chạy cache ngay.      */
+    const publicVersionMatch = pathname.match(/^\/api\/public\/snippet\/([a-f0-9]+)\/version$/);
+    if(publicVersionMatch && req.method === 'GET'){
+      const snippet = _findPublicSnippet(publicVersionMatch[1]);
+      if(!snippet){
+        _publicHeaders(res);
+        res.writeHead(404);
+        return res.end(JSON.stringify({ ok:false, error:'snippet_not_found' }));
+      }
+      const checksum = _codeChecksum(snippet.code);
+      _publicHeaders(res);
+      res.writeHead(200);
+      return res.end(JSON.stringify({
+        ok       : true,
+        id       : snippet.id,
+        name     : snippet.name,
+        updatedAt: snippet.updatedAt || snippet.createdAt,
+        checksum : checksum
+      }));
+    }
+
+    /* ── GET /api/public/snippet/:id ─────────────────────────────────
+       Trả toàn bộ code. Loader gọi khi:
+         (a) chưa có cache, HOẶC
+         (b) /version trả checksum khác với cache đang lưu.           */
+    const publicSnippetMatch = pathname.match(/^\/api\/public\/snippet\/([a-f0-9]+)$/);
+    if(publicSnippetMatch && req.method === 'GET'){
+      const snippet = _findPublicSnippet(publicSnippetMatch[1]);
+      if(!snippet){
+        _publicHeaders(res);
+        res.writeHead(404);
+        return res.end(JSON.stringify({ ok:false, error:'snippet_not_found',
+          message:'Snippet không tồn tại. Thêm vào DEFAULT_CODE_SNIPPETS trong index.js.' }));
+      }
+      const checksum = _codeChecksum(snippet.code);
+      _publicHeaders(res);
+      res.writeHead(200);
+      return res.end(JSON.stringify({
+        ok       : true,
+        code     : snippet.code,
+        name     : snippet.name,
+        updatedAt: snippet.updatedAt || snippet.createdAt,
+        checksum : checksum
+      }));
+    }
+
     return sendJSON(res, 404, { error: 'not_found' });
   }catch(e){
     console.error('[KeyVault] Lỗi xử lý request:', e);
@@ -8957,6 +9116,17 @@ server.listen(PORT, '0.0.0.0', ()=>{
   console.log(`  Dữ liệu được lưu tại: ${DB_FILE}`);
   console.log(`  Giao diện web: http://localhost:${PORT}/  (đã gộp chung vào index.js)`);
   console.log(`  Link xác thực API key: http://localhost:${PORT}/api/verify?key=...&app=...`);
+  // Sync snippet mặc định vào RAM + db ngay khi server khởi động
+  // → tránh mất snippet khi Render free tier xoá db.json sau mỗi restart
+  try{
+    _syncDefaultSnippetsToDB();
+    if(DEFAULT_CODE_SNIPPETS.length > 0){
+      console.log(`  [Snippet Loader] Đã load ${DEFAULT_CODE_SNIPPETS.length} snippet mặc định vào RAM.`);
+      console.log(`  [Snippet Loader] Public endpoint: /api/public/snippet/:id`);
+    }
+  }catch(e){
+    console.error('[KeyVault] Lỗi sync snippet mặc định (bỏ qua):', e && e.message);
+  }
   try{
     startAntiSleep();
   }catch(e){
