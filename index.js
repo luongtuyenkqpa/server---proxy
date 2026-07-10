@@ -4554,7 +4554,7 @@ const HTML_LINES = [
   "      else{ _showError('<b>'+(cRes.reason&&cRes.reason.message||'Lỗi tải code')+'</b><br><span style=\\\\\'color:#666\\\\\'>Không có cache dự phòng.</span>'); }",
   "    }",
   "  }",
-  "  _kvRun();",
+  "  _kvRun();`;",
   "",
   "  const innerCode = `${gmPolyfillBlock}\\n${cacheBlock}\\n${fetchHelper}\\n${execBlock}\\n${antiConsoleBlock}${antiDebugBlock}${antiEditBlock}${loaderUI}\\n${mainLoader}`;",
   "  const finalCode = antiBugWrap(innerCode);",
