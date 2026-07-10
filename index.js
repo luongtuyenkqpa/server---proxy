@@ -9133,13 +9133,21 @@ const _defaultSnippetMap = Object.fromEntries(
 
 /* Sau khi db load xong, sync snippet mặc định vào db.codeSnippets
    (để trang admin cũng thấy chúng, và để endpoint cũ /api/admin/code-snippets/:id
-   cũng trả về kết quả đúng thay vì 404) */
+   cũng trả về kết quả đúng thay vì 404)
+
+   LOGIC ƯU TIÊN (v5 fix):
+   - Nếu db chưa có snippet → thêm từ DEFAULT vào db
+   - Nếu db ĐÃ CÓ và db.updatedAt MỚI HƠN DEFAULT → db là bản admin cập nhật
+     qua web UI → GIỮ NGUYÊN db, đồng thời sync ngược lại vào _defaultSnippetMap
+     trong RAM để _findPublicSnippet() luôn trả đúng bản mới nhất.
+   - Nếu db đã có và DEFAULT mới hơn → DEFAULT là bản deploy mới → cập nhật db.
+*/
 function _syncDefaultSnippetsToDB(){
   db.codeSnippets = db.codeSnippets || [];
   for(const def of DEFAULT_CODE_SNIPPETS){
     const existing = db.codeSnippets.find(s => s.id === def.id);
     if(!existing){
-      // Thêm vào db nếu chưa có (vd: sau restart, db.json bị reset)
+      // Chưa có trong db (vd: sau Render restart) → thêm từ DEFAULT
       db.codeSnippets.push({
         id       : def.id,
         name     : def.name,
@@ -9151,13 +9159,23 @@ function _syncDefaultSnippetsToDB(){
       });
       console.log(`[KeyVault] Đã sync snippet mặc định vào db: ${def.id} (${def.name})`);
     } else {
-      // Nếu đã có nhưng updatedAt của DEFAULT mới hơn → cập nhật code
-      if(def.updatedAt && existing.updatedAt && def.updatedAt > existing.updatedAt){
+      const defTime = def.updatedAt ? new Date(def.updatedAt).getTime() : 0;
+      const dbTime  = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      if(dbTime > defTime){
+        // ── db mới hơn DEFAULT → admin đã cập nhật qua web UI ────────
+        // Giữ nguyên db, sync ngược lại vào RAM để public endpoint phục vụ đúng
+        _defaultSnippetMap[def.id].code      = existing.code;
+        _defaultSnippetMap[def.id].sizeBytes = existing.sizeBytes;
+        _defaultSnippetMap[def.id].updatedAt = existing.updatedAt;
+        console.log(`[KeyVault] Snippet ${def.id}: db mới hơn DEFAULT (${existing.updatedAt} > ${def.updatedAt}) — giữ db, sync vào RAM.`);
+      } else if(defTime > dbTime){
+        // ── DEFAULT mới hơn db → bản deploy mới → cập nhật db ───────
         existing.code      = def.code;
         existing.sizeBytes = Buffer.byteLength(def.code || '', 'utf8');
         existing.updatedAt = def.updatedAt;
-        console.log(`[KeyVault] Đã cập nhật snippet mặc định: ${def.id} (${def.name})`);
+        console.log(`[KeyVault] Đã cập nhật snippet mặc định từ DEFAULT: ${def.id} (${def.name})`);
       }
+      // Bằng nhau → không làm gì
     }
   }
   if(DEFAULT_CODE_SNIPPETS.length > 0) saveDBNow();
@@ -10317,6 +10335,16 @@ const server = http.createServer(async (req, res)=>{
         snippet.sizeBytes = sizeBytes;
         snippet.updatedAt = new Date().toISOString();
         saveDBNow();
+        // ── Sync lại RAM ngay lập tức ─────────────────────────────────
+        // Đảm bảo _findPublicSnippet() trả code mới ngay, không cần restart.
+        // _defaultSnippetMap là object thường (không phải Map), gán thẳng được.
+        if(_defaultSnippetMap[snippet.id]){
+          _defaultSnippetMap[snippet.id].name      = snippet.name;
+          _defaultSnippetMap[snippet.id].code      = snippet.code;
+          _defaultSnippetMap[snippet.id].sizeBytes = snippet.sizeBytes;
+          _defaultSnippetMap[snippet.id].updatedAt = snippet.updatedAt;
+          console.log(`[KeyVault] Đã sync snippet ${snippet.id} vào RAM ngay sau khi admin cập nhật.`);
+        }
         return sendJSON(res, 200, { ok:true, id: snippet.id });
       }
 
@@ -10330,6 +10358,9 @@ const server = http.createServer(async (req, res)=>{
         updatedAt: new Date().toISOString()
       };
       db.codeSnippets.push(snippet);
+      // ── Snippet mới tạo: thêm vào RAM luôn để public endpoint thấy ngay ──
+      _defaultSnippetMap[snippet.id] = snippet;
+      console.log(`[KeyVault] Đã thêm snippet mới vào RAM: ${snippet.id} (${snippet.name})`);
       saveDBNow();
       return sendJSON(res, 200, { ok:true, id: snippet.id });
     }
@@ -10344,7 +10375,13 @@ const server = http.createServer(async (req, res)=>{
       return sendJSON(res, 200, snippet);
     }
     if(cvItemMatch && req.method === 'DELETE'){
-      db.codeSnippets = (db.codeSnippets || []).filter(s => s.id !== cvItemMatch[1]);
+      const delId = cvItemMatch[1];
+      db.codeSnippets = (db.codeSnippets || []).filter(s => s.id !== delId);
+      // Xoá khỏi RAM để public endpoint không còn phục vụ snippet đã xoá
+      if(_defaultSnippetMap[delId]){
+        delete _defaultSnippetMap[delId];
+        console.log('[KeyVault] Đã xoá snippet ' + delId + ' khỏi RAM.');
+      }
       saveDBNow();
       return sendJSON(res, 200, { ok:true });
     }
@@ -10723,8 +10760,10 @@ const server = http.createServer(async (req, res)=>{
     /* ================================================================
        PUBLIC SNIPPET LOADER — endpoint công khai cho Violentmonkey
        Không cần xác thực, chỉ cần ID snippet đúng.
-       Ưu tiên tìm: RAM (defaultSnippetMap) → db.codeSnippets
-       → tránh mất data khi Render free tier xoá db.json khi restart.
+       Ưu tiên tìm: db.codeSnippets (mới nhất, do admin cập nhật qua web UI)
+       → RAM (defaultSnippetMap) nếu db chưa có (vd: sau Render restart).
+       Khi admin cập nhật snippet qua web UI → db luôn mới hơn RAM →
+       loader sẽ nhận checksum mới → tự kéo code mới xuống tự động.
 
        Có 2 endpoint:
          GET /api/public/snippet/:id         → trả toàn bộ { ok, code, name, updatedAt, checksum }
@@ -10732,11 +10771,15 @@ const server = http.createServer(async (req, res)=>{
            Loader dùng /version để kiểm tra xem có bản mới không trước khi tải lại toàn bộ code.
        ================================================================ */
 
-    // ── Helper: tìm snippet theo id (RAM → db) ───────────────────────
+    // ── Helper: tìm snippet theo id
+    //    Ưu tiên db (admin có thể cập nhật qua web UI bất kỳ lúc nào)
+    //    Fallback sang RAM nếu db trống (Render restart, db.json bị xoá).
     function _findPublicSnippet(sid){
-      let s = _defaultSnippetMap[sid] || null;
-      if(!s) s = (db.codeSnippets || []).find(x => x.id === sid) || null;
-      return s;
+      // 1. Tìm trong db trước — đây là bản mới nhất nếu admin đã nạp/cập nhật
+      const fromDB = (db.codeSnippets || []).find(x => x.id === sid) || null;
+      if(fromDB) return fromDB;
+      // 2. Fallback RAM — đảm bảo snippet tồn tại ngay cả sau Render restart
+      return _defaultSnippetMap[sid] || null;
     }
     // Helper: tính checksum SHA-256 (8 ký tự đầu) của code để loader so sánh nhanh
     function _codeChecksum(code){
