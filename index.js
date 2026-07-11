@@ -1427,6 +1427,22 @@ const HTML_LINES = [
   "        </button>",
   "        <button class=\"btn btn-ghost\" id=\"btnCancelEditCodeSnippet\" style=\"display:none;\">Huỷ chỉnh sửa</button>",
   "      </div>",
+  "",
+  "      <!-- ═══ HỘP HIỂN THỊ PUBLIC ENDPOINT SAU KHI LƯU ═══ -->",
+  "      <div id=\"cvPublicEndpointBox\" style=\"display:none; margin-top:16px; background:#e8f5e9; border:1.5px solid #a5d6a7; border-radius:10px; padding:14px 16px;\">",
+  "        <div style=\"display:flex; align-items:center; gap:8px; margin-bottom:8px;\">",
+  "          <svg viewBox='0 0 24 24' fill='none' stroke='#2e7d32' stroke-width='2' style='width:18px;height:18px;flex-shrink:0;'><polyline points='20 6 9 17 4 12'/></svg>",
+  "          <span style=\"font-weight:700; font-size:13px; color:#1b5e20;\">✔ Script đã lưu — Violentmonkey Loader sẽ tự động kéo code mới này!</span>",
+  "        </div>",
+  "        <div style=\"background:#fff; border:1px solid #c8e6c9; border-radius:8px; padding:10px 12px; margin-bottom:8px;\">",
+  "          <div style=\"font-size:10px; color:#81c784; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; margin-bottom:4px;\">Public Endpoint (Loader tự dùng để kéo code):</div>",
+  "          <div style=\"font-family:'JetBrains Mono',monospace; font-size:12px; color:#1b5e20; word-break:break-all;\" id=\"cvPublicEndpointUrl\">—</div>",
+  "        </div>",
+  "        <div style=\"display:flex; align-items:center; gap:12px; flex-wrap:wrap;\">",
+  "          <div style=\"font-size:11px; color:#388e3c;\">Checksum (SHA-256): <code style=\"font-family:monospace; background:#c8e6c9; padding:2px 7px; border-radius:5px; font-size:11px;\" id=\"cvPublicChecksum\">—</code></div>",
+  "          <div style=\"font-size:11px; color:#66bb6a;\">⚡ Loader phát hiện checksum thay đổi → tự tải code mới về — không cần làm gì thêm.</div>",
+  "        </div>",
+  "      </div>",
   "    </div>",
   "",
   "    <!-- ═══ DANH SÁCH SCRIPT TRÊN SERVER ═══ -->",
@@ -2830,9 +2846,28 @@ const HTML_LINES = [
   "    render();",
   "    showToast('Đã reset key về trạng thái ban đầu');",
   "  } else if(act==='resetdevice'){",
-  "    k.deviceId = null; k.devices = [];",
-  "    render();",
-  "    showToast('Đã reset thiết bị liên kết với key');",
+  "    // Reset thiết bị: gọi API server để xoá devices[] khỏi db.json",
+  "    // → khách hàng có thể cài lại app và nhập key → đăng ký thiết bị mới",
+  "    (async ()=>{",
+  "      try{",
+  "        const res = await fetch(`${API_BASE}/api/admin/keys/${encodeURIComponent(k.value)}/reset-devices`, { method:'POST' });",
+  "        const data = await res.json().catch(()=>({}));",
+  "        if(res.ok && data.ok){",
+  "          k.deviceId = null; k.devices = []; if(k._deviceLastSeen) delete k._deviceLastSeen;",
+  "          render();",
+  "          showToast('✔ Đã reset thiết bị — khách có thể nhập lại key trên thiết bị mới');",
+  "        } else {",
+  "          // Fallback: reset local nếu server không hỗ trợ endpoint mới (backward compat)",
+  "          k.deviceId = null; k.devices = [];",
+  "          render();",
+  "          showToast('Đã reset thiết bị (cục bộ) — lưu lại để đồng bộ server');",
+  "        }",
+  "      }catch(e){",
+  "        k.deviceId = null; k.devices = [];",
+  "        render();",
+  "        showToast('Đã reset thiết bị liên kết với key');",
+  "      }",
+  "    })();",
   "  } else if(act==='ban'){",
   "    k.banned = true;",
   "    render();",
@@ -4332,6 +4367,16 @@ const HTML_LINES = [
   "      const err = await res.json().catch(()=>({}));",
   "      showToast(err.error==='too_large' ? 'Script vượt quá giới hạn kích thước' : 'Lưu thất bại — kiểm tra kết nối server backend');",
   "      return;",
+  "    }",
+  "    const resData = await res.json().catch(()=>({}));",
+  "    // Hiển thị public endpoint URL để Loader tự động kéo code mới",
+  "    const snippetEndpointBox = document.getElementById('cvPublicEndpointBox');",
+  "    const snippetEndpointUrl = document.getElementById('cvPublicEndpointUrl');",
+  "    const snippetChecksum = document.getElementById('cvPublicChecksum');",
+  "    if(resData.endpoint && snippetEndpointBox){",
+  "      if(snippetEndpointUrl) snippetEndpointUrl.textContent = resData.endpoint;",
+  "      if(snippetChecksum) snippetChecksum.textContent = resData.checksum || '';",
+  "      snippetEndpointBox.style.display = '';",
   "    }",
   "    showToast(editingCodeSnippetId ? '✔ Đã cập nhật script — Loader tự tải về khi phát hiện checksum mới' : '✔ Script mới đã nạp! Script cũ đã bị xoá tự động');",
   "    document.getElementById('btnCancelEditCodeSnippet').click();",
@@ -9611,6 +9656,9 @@ const server = http.createServer(async (req, res)=>{
       let reason = valid ? 'ok' : status;
 
       // ---- Giới hạn số thiết bị được phép kích hoạt trên 1 key ----
+      // Logic: mỗi lần app nhập key thành công, server ghi nhận deviceId của app đó.
+      // Nếu app bị gỡ + cài lại → deviceId mới → không khớp → từ chối nếu đã đầy slot.
+      // Admin có thể reset thiết bị qua /api/admin/keys/:id/reset-devices.
       if(valid && device){
         found.key.devices = Array.isArray(found.key.devices)
           ? found.key.devices
@@ -9618,13 +9666,30 @@ const server = http.createServer(async (req, res)=>{
         const maxDevices = found.key.maxDevices || 1;
         if(!found.key.devices.includes(device)){
           if(found.key.devices.length >= maxDevices){
+            // Slot đã đầy — thiết bị mới (app cài lại) không được phép
             valid = false;
             reason = 'device_limit_exceeded';
+            logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason,
+              devicesUsed: found.key.devices.length, maxDevices, blockedDevice: device });
+            saveDBDebounced();
+            return sendJSON(res, 200, {
+              valid: false,
+              status,
+              reason: 'device_limit_exceeded',
+              message: `Key này đã được kích hoạt trên ${found.key.devices.length}/${maxDevices} thiết bị. Vui lòng liên hệ admin để reset thiết bị.`,
+              type: found.key.type || null,
+              expiresAt: found.key.expiresAt || null,
+              maxDevices,
+              devicesUsed: found.key.devices.length
+            });
           } else {
             found.key.devices.push(device);
             found.key.deviceId = found.key.devices[0]; // giữ tương thích ngược với các bản cũ chỉ đọc deviceId
           }
         }
+        // Cập nhật lastSeenAt cho thiết bị để dashboard hiện "1/1 — hoạt động X phút trước"
+        found.key._deviceLastSeen = found.key._deviceLastSeen || {};
+        found.key._deviceLastSeen[device] = new Date().toISOString();
       }
 
       logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason });
@@ -9672,11 +9737,21 @@ const server = http.createServer(async (req, res)=>{
       const maxDevices = found.key.maxDevices || 1;
       if(!found.key.devices.includes(regDeviceId)){
         if(found.key.devices.length >= maxDevices){
-          return sendJSON(res, 200, { ok: false, reason: 'device_limit_exceeded', devicesUsed: found.key.devices.length, maxDevices });
+          // Thiết bị mới — slot đã đầy → từ chối, không ghi nhận
+          return sendJSON(res, 200, {
+            ok: false,
+            reason: 'device_limit_exceeded',
+            message: `Key này đã được kích hoạt trên ${found.key.devices.length}/${maxDevices} thiết bị. Vui lòng liên hệ admin để reset thiết bị.`,
+            devicesUsed: found.key.devices.length,
+            maxDevices
+          });
         }
         found.key.devices.push(regDeviceId);
         found.key.deviceId = found.key.devices[0];
       }
+      // Cập nhật lastSeen cho thiết bị này
+      found.key._deviceLastSeen = found.key._deviceLastSeen || {};
+      found.key._deviceLastSeen[regDeviceId] = new Date().toISOString();
       saveDBDebounced();
       return sendJSON(res, 200, {
         ok: true,
@@ -9684,6 +9759,24 @@ const server = http.createServer(async (req, res)=>{
         maxDevices,
         deviceId: regDeviceId,
       });
+    }
+
+    /* ---- Admin: reset thiết bị đã ghi nhận của 1 key (POST /api/admin/keys/:keyValue/reset-devices) ----
+       Dùng khi khách hàng gỡ app + cài lại → server sẽ chặn vì device mới ≠ device cũ.
+       Admin bấm nút Reset Thiết bị → devices = [] → khách hàng nhập key lại → đăng ký thiết bị mới. */
+    const resetDeviceMatch = pathname.match(/^\/api\/admin\/keys\/(.+)\/reset-devices$/);
+    if(resetDeviceMatch && req.method === 'POST'){
+      const targetKey = decodeURIComponent(resetDeviceMatch[1]).trim();
+      const found = findKeyEverywhere(targetKey);
+      if(!found){
+        return sendJSON(res, 404, { ok: false, error: 'key_not_found' });
+      }
+      found.key.devices = [];
+      delete found.key.deviceId;
+      delete found.key._deviceLastSeen;
+      saveDBNow();
+      console.log(`[KeyVault] Admin đã reset thiết bị cho key: ${targetKey}`);
+      return sendJSON(res, 200, { ok: true, message: 'Đã reset thiết bị. Khách hàng có thể nhập lại key để đăng ký thiết bị mới.' });
     }
 
     /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
@@ -10486,6 +10579,15 @@ const server = http.createServer(async (req, res)=>{
         return sendJSON(res, 413, { ok:false, error: 'too_large', message: 'Code vượt quá 3MB — hãy chia nhỏ hoặc rút gọn.' });
       }
 
+      // Helper build public URL cho snippet (dùng cho cả tạo mới lẫn cập nhật)
+      function _buildSnippetPublicUrl(sid){
+        try{
+          const base = resolvePublicUrl(req);
+          if(!base) return null;
+          return { endpoint: `${base}/api/public/snippet/${sid}`, versionEndpoint: `${base}/api/public/snippet/${sid}/version`, listEndpoint: `${base}/api/public/snippets` };
+        }catch(e){ return null; }
+      }
+
       if(body.id){
         const snippet = db.codeSnippets.find(s => s.id === body.id);
         if(!snippet) return sendJSON(res, 404, { ok:false, error: 'not_found' });
@@ -10504,8 +10606,20 @@ const server = http.createServer(async (req, res)=>{
           _defaultSnippetMap[snippet.id].sizeBytes = snippet.sizeBytes;
           _defaultSnippetMap[snippet.id].updatedAt = snippet.updatedAt;
           console.log(`[KeyVault] Đã sync snippet ${snippet.id} vào RAM ngay sau khi admin cập nhật.`);
+        } else {
+          // Snippet không có trong DEFAULT_CODE_SNIPPETS nhưng đã có trong db — thêm vào RAM
+          _defaultSnippetMap[snippet.id] = { ...snippet };
+          console.log(`[KeyVault] Đã thêm snippet ${snippet.id} vào RAM từ db (sau khi cập nhật).`);
         }
-        return sendJSON(res, 200, { ok:true, id: snippet.id });
+        const urls = _buildSnippetPublicUrl(snippet.id);
+        return sendJSON(res, 200, {
+          ok: true,
+          id: snippet.id,
+          checksum: _codeChecksum(snippet.code),
+          updatedAt: snippet.updatedAt,
+          // Trả về publicEndpoint để dashboard hiển thị ngay + Loader dùng để tự kéo code
+          ...(urls || {})
+        });
       }
 
       const snippet = {
@@ -10522,7 +10636,15 @@ const server = http.createServer(async (req, res)=>{
       _defaultSnippetMap[snippet.id] = snippet;
       console.log(`[KeyVault] Đã thêm snippet mới vào RAM: ${snippet.id} (${snippet.name})`);
       saveDBNow();
-      return sendJSON(res, 200, { ok:true, id: snippet.id });
+      const newUrls = _buildSnippetPublicUrl(snippet.id);
+      return sendJSON(res, 200, {
+        ok: true,
+        id: snippet.id,
+        checksum: _codeChecksum(snippet.code),
+        updatedAt: snippet.updatedAt,
+        // Trả về publicEndpoint để dashboard hiển thị ngay + Loader dùng để tự kéo code
+        ...(newUrls || {})
+      });
     }
 
     /* ---- Admin: xem chi tiết (kèm nội dung đầy đủ) hoặc xoá 1 đoạn code cụ thể ---- */
