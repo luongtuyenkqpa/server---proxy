@@ -7905,19 +7905,27 @@ const server = http.createServer(async (req, res)=>{
       if(isRateLimited('verify', verifyIp, 60, 60 * 1000)){
         return sendJSON(res, 429, { valid:false, reason: 'rate_limited' });
       }
-      let key, appId, device;
+      let key, appId, device, platform;
       if(req.method === 'GET'){
         key = url.searchParams.get('key');
         appId = url.searchParams.get('app') || url.searchParams.get('app_id') || 'unknown-app';
         device = url.searchParams.get('device') || url.searchParams.get('device_id') || '';
+        platform = url.searchParams.get('platform') || '';
       } else {
         const body = await readJSONBody(req);
         key = body.key;
         appId = body.app_id || body.appId || body.app || 'unknown-app';
         device = body.device || body.device_id || body.deviceId || '';
+        platform = body.platform || '';
       }
       appId = String(appId).trim().slice(0, 100) || 'unknown-app';
       device = String(device || '').trim().slice(0, 200);
+      platform = String(platform || '').trim().toLowerCase().slice(0, 50);
+      // Tự suy platform từ prefix device nếu không được gửi tường minh
+      if(!platform && device){
+        if(device.startsWith('LUA-'))  platform = 'roblox';
+        else if(device.startsWith('VM-') || device.startsWith('KV-')) platform = 'web';
+      }
 
       if(!key){
         return sendJSON(res, 400, { valid: false, reason: 'missing_key' });
@@ -7958,39 +7966,96 @@ const server = http.createServer(async (req, res)=>{
       // Logic: mỗi lần app nhập key thành công, server ghi nhận deviceId của app đó.
       // Nếu app bị gỡ + cài lại → deviceId mới → không khớp → từ chối nếu đã đầy slot.
       // Admin có thể reset thiết bị qua /api/admin/keys/:id/reset-devices.
+      // ---- Giới hạn số thiết bị: PHÂN SLOT theo platform ----
+      // Script Lua (Roblox) gửi device = "LUA-<UserId>", platform = "roblox"
+      // Script Violentmonkey/web gửi device = "VM-<fingerprint>",  platform = "web"
+      // Mỗi platform có bucket devices riêng → key maxDevices=1 cho phép 1 Lua + 1 VM
+      // hoạt động đồng thời mà KHÔNG tranh slot nhau.
       if(valid && device){
-        found.key.devices = Array.isArray(found.key.devices)
-          ? found.key.devices
-          : (found.key.deviceId ? [found.key.deviceId] : []);
         const maxDevices = found.key.maxDevices || 1;
-        if(!found.key.devices.includes(device)){
-          if(found.key.devices.length >= maxDevices){
-            // Slot đã đầy — thiết bị mới (app cài lại) không được phép
-            valid = false;
-            reason = 'device_limit_exceeded';
-            logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason,
-              devicesUsed: found.key.devices.length, maxDevices, blockedDevice: device });
-            saveDBDebounced();
-            return sendJSON(res, 200, {
-              valid: false,
-              status,
-              reason: 'device_limit_exceeded',
-              message: `Key này đã được kích hoạt trên ${found.key.devices.length}/${maxDevices} thiết bị. Vui lòng liên hệ admin để reset thiết bị.`,
-              type: found.key.type || null,
-              expiresAt: found.key.expiresAt || null,
-              maxDevices,
-              devicesUsed: found.key.devices.length
-            });
-          } else {
+        const isPlatformRoblox = platform === 'roblox' || device.startsWith('LUA-');
+        const isPlatformWeb    = platform === 'web'    || device.startsWith('VM-') || device.startsWith('KV-');
+
+        // Chọn đúng bucket devices theo platform
+        let devBucketKey;
+        if(isPlatformRoblox)      devBucketKey = 'devices_lua';
+        else if(isPlatformWeb)    devBucketKey = 'devices_vm';
+        else                      devBucketKey = 'devices';   // platform không rõ → bucket chung cũ
+
+        // Khởi tạo bucket nếu chưa có
+        found.key[devBucketKey] = Array.isArray(found.key[devBucketKey])
+          ? found.key[devBucketKey]
+          : [];
+
+        // Compat: nếu bucket chung "devices" chưa tách → migrate sang bucket_lua/vm
+        if(devBucketKey === 'devices'){
+          // Bucket cũ — giữ nguyên hành vi cũ để tương thích thiết bị không gửi platform
+          found.key.devices = Array.isArray(found.key.devices)
+            ? found.key.devices
+            : (found.key.deviceId ? [found.key.deviceId] : []);
+          if(!found.key.devices.includes(device)){
+            if(found.key.devices.length >= maxDevices){
+              valid = false;
+              reason = 'device_limit_exceeded';
+              logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason,
+                devicesUsed: found.key.devices.length, maxDevices, blockedDevice: device });
+              saveDBDebounced();
+              return sendJSON(res, 200, {
+                valid: false, status,
+                reason: 'device_limit_exceeded',
+                message: `Key này đã được kích hoạt trên ${found.key.devices.length}/${maxDevices} thiết bị. Vui lòng liên hệ admin để reset thiết bị.`,
+                type: found.key.type || null,
+                expiresAt: found.key.expiresAt || null,
+                maxDevices,
+                devicesUsed: found.key.devices.length
+              });
+            }
             found.key.devices.push(device);
-            found.key.deviceId = found.key.devices[0]; // giữ tương thích ngược với các bản cũ chỉ đọc deviceId
+            found.key.deviceId = found.key.devices[0];
+          }
+        } else {
+          // Bucket theo platform — Lua và VM KHÔNG dùng chung slot
+          const bucket = found.key[devBucketKey];
+          if(!bucket.includes(device)){
+            if(bucket.length >= maxDevices){
+              // Slot bucket này đầy
+              valid = false;
+              reason = 'device_limit_exceeded';
+              const totalUsed = (found.key.devices_lua||[]).length + (found.key.devices_vm||[]).length;
+              logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason,
+                devicesUsed: bucket.length, maxDevices, blockedDevice: device, platform });
+              saveDBDebounced();
+              return sendJSON(res, 200, {
+                valid: false, status,
+                reason: 'device_limit_exceeded',
+                message: `Key này đã đăng ký ${bucket.length}/${maxDevices} thiết bị cho nền tảng "${isPlatformRoblox ? 'Roblox' : 'Web/VM'}". Liên hệ admin để reset.`,
+                type: found.key.type || null,
+                expiresAt: found.key.expiresAt || null,
+                maxDevices,
+                devicesUsed: totalUsed,
+                platform
+              });
+            }
+            bucket.push(device);
+            // Tương thích ngược: deviceId luôn là device đăng ký đầu tiên (bất kỳ platform)
+            if(!found.key.deviceId) found.key.deviceId = device;
+            // Sync bucket chung "devices" để dashboard cũ vẫn hiển thị đúng
+            found.key.devices = [...new Set([
+              ...(found.key.devices_lua || []),
+              ...(found.key.devices_vm  || [])
+            ])];
           }
         }
+
         // Cập nhật lastSeenAt cho thiết bị để dashboard hiện "1/1 — hoạt động X phút trước"
         found.key._deviceLastSeen = found.key._deviceLastSeen || {};
         found.key._deviceLastSeen[device] = new Date().toISOString();
       }
 
+      const totalDevicesUsed = Math.max(
+        (found.key.devices || []).length,
+        (found.key.devices_lua || []).length + (found.key.devices_vm || []).length
+      );
       logVerifyCall({ time: new Date().toISOString(), appId, key, valid, reason });
       saveDBDebounced();
       return sendJSON(res, 200, {
@@ -8000,7 +8065,8 @@ const server = http.createServer(async (req, res)=>{
         type: found.key.type || null,
         expiresAt: found.key.expiresAt || null,
         maxDevices: found.key.maxDevices || 1,
-        devicesUsed: (found.key.devices || []).length
+        devicesUsed: totalDevicesUsed,
+        platform: platform || undefined
       });
     }
 
@@ -8029,34 +8095,48 @@ const server = http.createServer(async (req, res)=>{
       }
       // Kích hoạt key nếu chưa kích hoạt
       activateKeyIfNeeded(found.key);
-      // Ghi nhận thiết bị
-      found.key.devices = Array.isArray(found.key.devices)
-        ? found.key.devices
-        : (found.key.deviceId ? [found.key.deviceId] : []);
+      // Ghi nhận thiết bị — phân slot theo platform (tương tự /api/verify)
+      const regPlatformRaw = String(body.platform || '').trim().toLowerCase();
+      const isRegRoblox = regPlatformRaw === 'roblox' || regDeviceId.startsWith('LUA-');
+      const isRegWeb    = regPlatformRaw === 'web'    || regDeviceId.startsWith('VM-') || regDeviceId.startsWith('KV-');
+      const regBucketKey = isRegRoblox ? 'devices_lua' : (isRegWeb ? 'devices_vm' : 'devices');
+      found.key[regBucketKey] = Array.isArray(found.key[regBucketKey])
+        ? found.key[regBucketKey]
+        : [];
       const maxDevices = found.key.maxDevices || 1;
-      if(!found.key.devices.includes(regDeviceId)){
-        if(found.key.devices.length >= maxDevices){
-          // Thiết bị mới — slot đã đầy → từ chối, không ghi nhận
+      const regBucket  = found.key[regBucketKey];
+      if(!regBucket.includes(regDeviceId)){
+        if(regBucket.length >= maxDevices){
+          // Thiết bị mới — slot đã đầy cho platform này → từ chối
+          const totalUsed = (found.key.devices_lua||[]).length + (found.key.devices_vm||[]).length + (found.key.devices||[]).length;
           return sendJSON(res, 200, {
             ok: false,
             reason: 'device_limit_exceeded',
-            message: `Key này đã được kích hoạt trên ${found.key.devices.length}/${maxDevices} thiết bị. Vui lòng liên hệ admin để reset thiết bị.`,
-            devicesUsed: found.key.devices.length,
+            message: `Key này đã đăng ký ${regBucket.length}/${maxDevices} thiết bị cho nền tảng "${isRegRoblox ? 'Roblox' : 'Web/VM'}". Vui lòng liên hệ admin để reset thiết bị.`,
+            devicesUsed: totalUsed,
             maxDevices
           });
         }
-        found.key.devices.push(regDeviceId);
-        found.key.deviceId = found.key.devices[0];
+        regBucket.push(regDeviceId);
+        if(!found.key.deviceId) found.key.deviceId = regDeviceId;
+        // Sync bucket chung để dashboard hiển thị đúng
+        found.key.devices = [...new Set([
+          ...(found.key.devices_lua || []),
+          ...(found.key.devices_vm  || []),
+          ...(found.key.devices     || [])
+        ])];
       }
       // Cập nhật lastSeen cho thiết bị này
       found.key._deviceLastSeen = found.key._deviceLastSeen || {};
       found.key._deviceLastSeen[regDeviceId] = new Date().toISOString();
       saveDBDebounced();
+      const regTotalUsed = (found.key.devices_lua||[]).length + (found.key.devices_vm||[]).length + (found.key.devices||[]).length;
       return sendJSON(res, 200, {
         ok: true,
-        devicesUsed: found.key.devices.length,
+        devicesUsed: regTotalUsed,
         maxDevices,
         deviceId: regDeviceId,
+        platform: regPlatformRaw || undefined
       });
     }
 
@@ -8070,12 +8150,15 @@ const server = http.createServer(async (req, res)=>{
       if(!found){
         return sendJSON(res, 404, { ok: false, error: 'key_not_found' });
       }
-      found.key.devices = [];
+      // Reset toàn bộ: bucket chung + bucket theo platform (devices_lua, devices_vm)
+      found.key.devices     = [];
+      found.key.devices_lua = [];
+      found.key.devices_vm  = [];
       delete found.key.deviceId;
       delete found.key._deviceLastSeen;
       saveDBNow();
       console.log(`[KeyVault] Admin đã reset thiết bị cho key: ${targetKey}`);
-      return sendJSON(res, 200, { ok: true, message: 'Đã reset thiết bị. Khách hàng có thể nhập lại key để đăng ký thiết bị mới.' });
+      return sendJSON(res, 200, { ok: true, message: 'Đã reset thiết bị (Lua + VM). Khách hàng có thể nhập lại key để đăng ký thiết bị mới.' });
     }
 
     /* ---- Nhật ký các lượt kiểm tra key gần đây ---- */
