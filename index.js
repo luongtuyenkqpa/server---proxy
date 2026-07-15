@@ -566,6 +566,63 @@ const HTML_LINES = [
   "  .price-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:12px;}",
   "  .price-table td{padding:6px 8px; border-bottom:1px dashed var(--line);}",
   "  .price-table td:last-child{text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600; color:var(--brass);}",
+  "",
+  "  /* ============ OLM KEY PAGE ============ */",
+  "  #olmPage{",
+  "    display:none; position:fixed; inset:0; background:var(--ink); z-index:100;",
+  "    overflow-y:auto;",
+  "  }",
+  "  #olmPage.show{display:block;}",
+  "  .olm-header{",
+  "    padding:0 32px;",
+  "    border-bottom:1px solid var(--line);",
+  "    position:sticky; top:0; background:rgba(255,255,255,0.95); backdrop-filter:blur(10px); z-index:20;",
+  "    display:flex; align-items:center; justify-content:space-between;",
+  "  }",
+  "  .olm-header-left{display:flex; align-items:center; gap:14px; padding:18px 0;}",
+  "  .olm-title{font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; color:var(--text);}",
+  "  .olm-subtitle{font-size:11.5px; color:var(--muted); margin-top:2px;}",
+  "  .olm-tabs{display:flex; gap:6px; padding-bottom:0;}",
+  "  .olm-tab{",
+  "    background:transparent; border:none; color:var(--muted); font-weight:600; font-size:13px;",
+  "    padding:11px 6px; cursor:pointer; position:relative; font-family:'Inter',sans-serif;",
+  "    border-bottom:2px solid transparent; margin-right:14px; transition:.15s;",
+  "  }",
+  "  .olm-tab:hover{color:var(--text);}",
+  "  .olm-tab.active{color:var(--brass); border-bottom-color:var(--brass);}",
+  "  .olm-body{max-width:1200px; margin:0 auto; padding:28px 32px;}",
+  "  .olm-split{display:grid; grid-template-columns:360px 1fr; gap:24px;}",
+  "  @media(max-width:900px){.olm-split{grid-template-columns:1fr;}}",
+  "  .olm-key-row{",
+  "    display:flex; align-items:flex-start; justify-content:space-between; padding:14px 16px;",
+  "    border:1px solid var(--line); border-radius:11px; margin-bottom:10px; background:var(--panel-2);",
+  "    gap:12px;",
+  "  }",
+  "  .olm-key-row:hover{border-color:var(--brass-soft);}",
+  "  .olm-key-row.banned-row{opacity:.65; background:#FFF5F5;}",
+  "  .olm-key-val{font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:700; color:var(--text); word-break:break-all;}",
+  "  .olm-key-meta{font-size:11px; color:var(--muted); margin-top:4px; line-height:1.6;}",
+  "  .olm-key-actions{display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0;}",
+  "  .olm-list-filter{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center;}",
+  "  .olm-list-filter input{flex:1; min-width:180px;}",
+  "  .olm-list-filter select{min-width:140px;}",
+  "  .olm-section-title{font-family:'Space Grotesk',sans-serif; font-size:15px; font-weight:700; color:var(--text); margin:0 0 4px;}",
+  "  .olm-section-sub{font-size:12px; color:var(--muted); margin:0 0 16px;}",
+  "  .olm-empty{text-align:center; padding:40px 20px; color:var(--muted); font-size:13px;}",
+  "  .olm-custom-key-input{",
+  "    display:flex; gap:8px; margin-top:8px;",
+  "  }",
+  "  .olm-custom-key-input input{flex:1;}",
+  "  .olm-badge-normal{background:#EDECE7; color:var(--muted); border:1px solid var(--line); padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600;}",
+  "  .olm-badge-premium{background:linear-gradient(120deg,var(--brass-tint),#FBF2DC); color:var(--brass); border:1px solid #AD7F1E40; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:700;}",
+  "  .olm-badge-active{background:var(--ok-tint); color:var(--ok); border:1px solid var(--ok)30; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600;}",
+  "  .olm-badge-unactivated{background:var(--info-tint); color:var(--info); border:1px solid var(--info)30; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600;}",
+  "  .olm-badge-expired{background:var(--danger-tint); color:var(--danger); border:1px solid var(--danger)30; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600;}",
+  "  .olm-badge-banned{background:#2a2a2a; color:#fff; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:700;}",
+  "  .olm-stats-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px;}",
+  "  .olm-stat-chip{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:12px;}",
+  "  .olm-stat-chip .n{font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--text);}",
+  "  .olm-stat-chip .l{color:var(--muted); font-size:10.5px; margin-top:2px;}",
   "</style>",
   "</head>",
   "<body>",
@@ -635,6 +692,10 @@ const HTML_LINES = [
   "        <svg id=\"iconEyeOpen\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>",
   "        <svg id=\"iconEyeClosed\" style=\"display:none;\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-6.06M9.9 4.24A9.6 9.6 0 0 1 12 4c7 0 11 8 11 8a20.3 20.3 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24\"/><path d=\"M1 1l22 22\"/></svg>",
   "        <span id=\"toggleStatsLabel\">Ẩn số liệu</span>",
+  "      </button>",
+  "      <button class=\"ghost-icon-btn\" id=\"btnOpenOlmPage\" title=\"Quản lý Server key Olm\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/><circle cx=\"12\" cy=\"16\" r=\"1.5\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "        Server key Olm",
   "      </button>",
   "      <button class=\"ghost-icon-btn\" id=\"btnChangeOwnPassword\" title=\"Đổi mật khẩu tài khoản đang đăng nhập\">",
   "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/><path d=\"M8 11V7a4 4 0 0 1 8 0v4\"/></svg>",
@@ -4781,6 +4842,362 @@ const HTML_LINES = [
   "  }catch(e){ showToast('Gửi thông báo thất bại — kiểm tra kết nối server'); }",
   "});",
   "",
+  "/* ============================================================",
+  "   SERVER KEY OLM — toàn bộ logic frontend",
+  "   ============================================================ */",
+  "const OLM_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';",
+  "function olmGenKey(){",
+  "  function seg(n){ let s=''; for(let i=0;i<n;i++) s+=OLM_CHARS[Math.floor(Math.random()*OLM_CHARS.length)]; return s; }",
+  "  return `OLM-${seg(4)}-${seg(4)}-${seg(4)}`;",
+  "}",
+  "function olmMsFromUnit(amount, unit){",
+  "  const map = { minute:60000, hour:3600000, day:86400000, month:30*86400000 };",
+  "  return amount * (map[unit] || 86400000);",
+  "}",
+  "function olmStatusBadge(k){",
+  "  if(k.banned) return '<span class=\"olm-badge-banned\">Bị cấm</span>';",
+  "  const st = olmComputeStatus(k);",
+  "  if(st==='expired') return '<span class=\"olm-badge-expired\">Hết hạn</span>';",
+  "  if(st==='active')  return '<span class=\"olm-badge-active\">Đang hoạt động</span>';",
+  "  return '<span class=\"olm-badge-unactivated\">Chưa kích hoạt</span>';",
+  "}",
+  "function olmTypeBadge(k){",
+  "  return k.type==='premium'",
+  "    ? '<span class=\"olm-badge-premium\">★ Premium</span>'",
+  "    : '<span class=\"olm-badge-normal\">Thường</span>';",
+  "}",
+  "function olmComputeStatus(k){",
+  "  if(k.banned) return 'banned';",
+  "  if(!k.activated) return 'unactivated';",
+  "  if(k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()) return 'expired';",
+  "  return 'active';",
+  "}",
+  "function olmFmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleString('vi-VN'); }",
+  "function olmDurLabel(amount, unit){",
+  "  const map = { minute:'phút', hour:'giờ', day:'ngày', month:'tháng' };",
+  "  if(!amount) return 'Không giới hạn';",
+  "  return amount + ' ' + (map[unit] || unit);",
+  "}",
+  "",
+  "/* ----- Open/Close OLM page ----- */",
+  "document.getElementById('btnOpenOlmPage').addEventListener('click', ()=>{",
+  "  document.getElementById('olmPage').classList.add('show');",
+  "  olmLoadFromServer();",
+  "  olmSwitchTab('create');",
+  "});",
+  "document.getElementById('btnCloseOlmPage').addEventListener('click', ()=>{",
+  "  document.getElementById('olmPage').classList.remove('show');",
+  "});",
+  "",
+  "/* ----- Tab switching ----- */",
+  "document.querySelectorAll('.olm-tab').forEach(btn=>{",
+  "  btn.addEventListener('click', ()=>{ olmSwitchTab(btn.dataset.olmTab); });",
+  "});",
+  "function olmSwitchTab(tab){",
+  "  document.querySelectorAll('.olm-tab').forEach(b=>b.classList.toggle('active', b.dataset.olmTab===tab));",
+  "  ['create','list','normal','premium','pinned'].forEach(t=>{",
+  "    const el = document.getElementById('olmTab-'+t);",
+  "    if(el) el.style.display = t===tab ? '' : 'none';",
+  "  });",
+  "  if(tab==='list')    olmRenderList();",
+  "  if(tab==='normal')  olmRenderFiltered('normal');",
+  "  if(tab==='premium') olmRenderFiltered('premium');",
+  "  if(tab==='pinned')  olmRenderPinned();",
+  "}",
+  "",
+  "/* ----- Expiry field toggle (random form) ----- */",
+  "document.querySelectorAll('input[name=\"olmRandExpiry\"]').forEach(r=>{",
+  "  r.addEventListener('change', ()=>{",
+  "    document.getElementById('olmRandExpiryFields').style.display =",
+  "      document.getElementById('olmRandExpLimit').checked ? '' : 'none';",
+  "  });",
+  "});",
+  "document.querySelectorAll('input[name=\"olmManExpiry\"]').forEach(r=>{",
+  "  r.addEventListener('change', ()=>{",
+  "    document.getElementById('olmManExpiryFields').style.display =",
+  "      document.getElementById('olmManExpLimit').checked ? '' : 'none';",
+  "  });",
+  "});",
+  "",
+  "/* ----- In-memory store (synced with server) ----- */",
+  "let olmLocalKeys = [];",
+  "",
+  "async function olmLoadFromServer(){",
+  "  try{",
+  "    const res = await fetch(API_BASE + '/api/olm/keys', {",
+  "      headers:{ 'Content-Type':'application/json' }",
+  "    });",
+  "    const data = await res.json();",
+  "    if(data.ok) olmLocalKeys = data.keys || [];",
+  "  }catch(e){ console.warn('[OLM] load error', e); }",
+  "}",
+  "async function olmSaveToServer(keys){",
+  "  try{",
+  "    await fetch(API_BASE + '/api/olm/keys', {",
+  "      method:'POST',",
+  "      headers:{ 'Content-Type':'application/json' },",
+  "      body: JSON.stringify({ keys })",
+  "    });",
+  "  }catch(e){ console.warn('[OLM] save error', e); }",
+  "}",
+  "",
+  "/* ----- Create random key ----- */",
+  "document.getElementById('btnOlmGenRandom').addEventListener('click', async ()=>{",
+  "  const type    = document.querySelector('input[name=\"olmRandType\"]:checked').value;",
+  "  const hasExp  = document.getElementById('olmRandExpLimit').checked;",
+  "  const amount  = parseInt(document.getElementById('olmRandDurAmount').value)||1;",
+  "  const unit    = document.getElementById('olmRandDurUnit').value;",
+  "  const maxUses = parseInt(document.getElementById('olmRandMaxUses').value)||1;",
+  "  const acct    = document.getElementById('olmRandAccount').value.trim();",
+  "  const value   = olmGenKey();",
+  "  const now     = new Date().toISOString();",
+  "  const k = {",
+  "    id: 'olm_'+Date.now()+Math.random().toString(36).slice(2,7),",
+  "    value, type, createdAt: now,",
+  "    expiresAt: null, durationAmount: hasExp ? amount : null, durationUnit: hasExp ? unit : null,",
+  "    maxUses, usedCount: 0, banned: false,",
+  "    olmAccount: acct || null,",
+  "    activated: false, activatedAt: null",
+  "  };",
+  "  olmLocalKeys.unshift(k);",
+  "  await olmSaveToServer(olmLocalKeys);",
+  "  olmShowJustCreated([k]);",
+  "  showToast('Đã tạo key Olm: ' + value);",
+  "});",
+  "",
+  "/* ----- Create manual key ----- */",
+  "document.getElementById('btnOlmGenManual').addEventListener('click', async ()=>{",
+  "  const value = document.getElementById('olmManValue').value.trim();",
+  "  if(!value){ showToast('Vui lòng nhập giá trị key'); return; }",
+  "  if(olmLocalKeys.some(k=>k.value===value)){ showToast('Key đã tồn tại'); return; }",
+  "  const type    = document.querySelector('input[name=\"olmManType\"]:checked').value;",
+  "  const hasExp  = document.getElementById('olmManExpLimit').checked;",
+  "  const amount  = parseInt(document.getElementById('olmManDurAmount').value)||1;",
+  "  const unit    = document.getElementById('olmManDurUnit').value;",
+  "  const maxUses = parseInt(document.getElementById('olmManMaxUses').value)||1;",
+  "  const acct    = document.getElementById('olmManAccount').value.trim();",
+  "  const now     = new Date().toISOString();",
+  "  const k = {",
+  "    id: 'olm_'+Date.now()+Math.random().toString(36).slice(2,7),",
+  "    value, type, createdAt: now,",
+  "    expiresAt: null, durationAmount: hasExp ? amount : null, durationUnit: hasExp ? unit : null,",
+  "    maxUses, usedCount: 0, banned: false,",
+  "    olmAccount: acct || null,",
+  "    activated: false, activatedAt: null",
+  "  };",
+  "  olmLocalKeys.unshift(k);",
+  "  await olmSaveToServer(olmLocalKeys);",
+  "  olmShowJustCreated([k]);",
+  "  document.getElementById('olmManValue').value = '';",
+  "  showToast('Đã tạo key thủ công: ' + value);",
+  "});",
+  "",
+  "function olmShowJustCreated(list){",
+  "  const wrap = document.getElementById('olmJustCreatedList');",
+  "  wrap.innerHTML = '';",
+  "  document.getElementById('olmCreatedSub').textContent = 'Key vừa được tạo thành công:';",
+  "  list.forEach(k=>{",
+  "    const div = document.createElement('div');",
+  "    div.className = 'olm-key-row';",
+  "    div.innerHTML = `",
+  "      <div style=\"flex:1\">",
+  "        <div class=\"olm-key-val\">${k.value}</div>",
+  "        <div class=\"olm-key-meta\">",
+  "          ${olmTypeBadge(k)} ${olmStatusBadge(k)}<br>",
+  "          Thời hạn: ${olmDurLabel(k.durationAmount, k.durationUnit)}<br>",
+  "          Thiết bị tối đa: ${k.maxUses} | Tài khoản Olm: ${k.olmAccount||'—'}<br>",
+  "          Tạo lúc: ${olmFmtDate(k.createdAt)}",
+  "        </div>",
+  "      </div>",
+  "      <button class=\"btn btn-ghost\" style=\"font-size:12px;\" onclick=\"navigator.clipboard.writeText('${k.value}').then(()=>showToast('Đã copy key'))\">Copy</button>",
+  "    `;",
+  "    wrap.appendChild(div);",
+  "  });",
+  "}",
+  "",
+  "/* ----- Stats row ----- */",
+  "function olmRenderStats(){",
+  "  const total   = olmLocalKeys.length;",
+  "  const active  = olmLocalKeys.filter(k=>olmComputeStatus(k)==='active').length;",
+  "  const unact   = olmLocalKeys.filter(k=>olmComputeStatus(k)==='unactivated').length;",
+  "  const expired = olmLocalKeys.filter(k=>olmComputeStatus(k)==='expired').length;",
+  "  const banned  = olmLocalKeys.filter(k=>k.banned).length;",
+  "  const premium = olmLocalKeys.filter(k=>k.type==='premium').length;",
+  "  document.getElementById('olmStatsRow').innerHTML = `",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\">${total}</div><div class=\"l\">Tổng key</div></div>",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\" style=\"color:var(--ok)\">${active}</div><div class=\"l\">Đang hoạt động</div></div>",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\" style=\"color:var(--info)\">${unact}</div><div class=\"l\">Chưa kích hoạt</div></div>",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\" style=\"color:var(--danger)\">${expired}</div><div class=\"l\">Hết hạn</div></div>",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\">${banned}</div><div class=\"l\">Bị cấm</div></div>",
+  "    <div class=\"olm-stat-chip\"><div class=\"n\" style=\"color:var(--brass)\">${premium}</div><div class=\"l\">Premium</div></div>",
+  "  `;",
+  "}",
+  "",
+  "/* ----- Render helpers ----- */",
+  "let olmExtendTargetId = null;",
+  "let olmResetTargetId  = null;",
+  "",
+  "function olmRenderKeyRow(k){",
+  "  const st = olmComputeStatus(k);",
+  "  const div = document.createElement('div');",
+  "  div.className = 'olm-key-row' + (k.banned ? ' banned-row' : '');",
+  "  div.innerHTML = `",
+  "    <div style=\"flex:1\">",
+  "      <div class=\"olm-key-val\">${k.value}</div>",
+  "      <div class=\"olm-key-meta\">",
+  "        ${olmTypeBadge(k)} ${olmStatusBadge(k)}<br>",
+  "        Tạo lúc: ${olmFmtDate(k.createdAt)}<br>",
+  "        ${k.activated && k.activatedAt ? 'Kích hoạt: '+olmFmtDate(k.activatedAt)+'<br>' : ''}",
+  "        ${k.expiresAt ? 'Hết hạn: '+olmFmtDate(k.expiresAt)+'<br>' : (k.durationAmount ? 'Thời hạn (khi kích hoạt): '+olmDurLabel(k.durationAmount,k.durationUnit)+'<br>' : 'Không giới hạn<br>')}",
+  "        Thiết bị: <b>${k.usedCount||0}/${k.maxUses||1}</b>",
+  "        ${k.olmAccount ? ' | Olm: <b>'+k.olmAccount+'</b>' : ''}",
+  "      </div>",
+  "    </div>",
+  "    <div class=\"olm-key-actions\">",
+  "      <button class=\"icon-btn\" title=\"Copy key\" onclick=\"navigator.clipboard.writeText('${k.value}').then(()=>showToast('Đã copy'))\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>",
+  "      </button>",
+  "      <button class=\"icon-btn\" title=\"Gia hạn\" data-olm-act=\"extend\" data-olm-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/></svg>",
+  "      </button>",
+  "      <button class=\"icon-btn\" title=\"Reset số lần nhập\" data-olm-act=\"resetuses\" data-olm-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/></svg>",
+  "      </button>",
+  "      ${k.banned",
+  "        ? '<button class=\"icon-btn\" title=\"Bỏ cấm\" data-olm-act=\"unban\" data-olm-id=\"'+k.id+'\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 12l3 3 5-6\"/></svg></button>'",
+  "        : '<button class=\"icon-btn danger\" title=\"Cấm key\" data-olm-act=\"ban\" data-olm-id=\"'+k.id+'\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M5.5 5.5l13 13\"/></svg></button>'",
+  "      }",
+  "      <button class=\"icon-btn danger\" title=\"Xoá key\" data-olm-act=\"delete\" data-olm-id=\"${k.id}\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6\"/></svg>",
+  "      </button>",
+  "    </div>",
+  "  `;",
+  "  return div;",
+  "}",
+  "",
+  "function olmRenderList(){",
+  "  olmRenderStats();",
+  "  const search = (document.getElementById('olmSearch')||{}).value||'';",
+  "  const stFilter = (document.getElementById('olmFilterStatus')||{}).value||'all';",
+  "  const tyFilter = (document.getElementById('olmFilterType')||{}).value||'all';",
+  "  let list = olmLocalKeys;",
+  "  if(search) list = list.filter(k=>k.value.includes(search.toUpperCase())||(k.olmAccount||'').toLowerCase().includes(search.toLowerCase()));",
+  "  if(stFilter!=='all') list = list.filter(k=>olmComputeStatus(k)===stFilter);",
+  "  if(tyFilter!=='all') list = list.filter(k=>k.type===tyFilter);",
+  "  const wrap = document.getElementById('olmListWrap');",
+  "  wrap.innerHTML = '';",
+  "  if(!list.length){ wrap.innerHTML = '<div class=\"olm-empty\">Không có key nào phù hợp.</div>'; return; }",
+  "  list.forEach(k=>wrap.appendChild(olmRenderKeyRow(k)));",
+  "}",
+  "",
+  "function olmRenderFiltered(type){",
+  "  const list = olmLocalKeys.filter(k=>k.type===type);",
+  "  const wrap = document.getElementById('olmTab-'+type).querySelector('div[id]')||document.getElementById('olm'+type.charAt(0).toUpperCase()+type.slice(1)+'List');",
+  "  if(!wrap) return;",
+  "  wrap.innerHTML = '';",
+  "  if(!list.length){ wrap.innerHTML = '<div class=\"olm-empty\">Chưa có key '+type+' nào.</div>'; return; }",
+  "  list.forEach(k=>wrap.appendChild(olmRenderKeyRow(k)));",
+  "}",
+  "",
+  "function olmRenderPinned(){",
+  "  const list = olmLocalKeys.filter(k=>k.olmAccount);",
+  "  const wrap = document.getElementById('olmPinnedList');",
+  "  wrap.innerHTML = '';",
+  "  if(!list.length){ wrap.innerHTML = '<div class=\"olm-empty\">Chưa có key nào được ghim tài khoản Olm.</div>'; return; }",
+  "  list.forEach(k=>wrap.appendChild(olmRenderKeyRow(k)));",
+  "}",
+  "",
+  "/* ----- Live filter on list tab ----- */",
+  "document.getElementById('olmSearch').addEventListener('input', ()=>{ if(document.querySelector('.olm-tab[data-olm-tab=\"list\"].active')) olmRenderList(); });",
+  "document.getElementById('olmFilterStatus').addEventListener('change', ()=>{ if(document.querySelector('.olm-tab[data-olm-tab=\"list\"].active')) olmRenderList(); });",
+  "document.getElementById('olmFilterType').addEventListener('change',  ()=>{ if(document.querySelector('.olm-tab[data-olm-tab=\"list\"].active')) olmRenderList(); });",
+  "",
+  "/* ----- Action delegation ----- */",
+  "document.getElementById('olmPage').addEventListener('click', async (e)=>{",
+  "  const btn = e.target.closest('[data-olm-act]');",
+  "  if(!btn) return;",
+  "  const act = btn.dataset.olmAct;",
+  "  const id  = btn.dataset.olmId;",
+  "  const k   = olmLocalKeys.find(x=>x.id===id);",
+  "  if(!k) return;",
+  "",
+  "  if(act==='delete'){",
+  "    if(!confirm('Xoá key '+k.value+'?')) return;",
+  "    olmLocalKeys = olmLocalKeys.filter(x=>x.id!==id);",
+  "    await olmSaveToServer(olmLocalKeys);",
+  "    olmRenderList(); showToast('Đã xoá key');",
+  "    return;",
+  "  }",
+  "  if(act==='ban'){",
+  "    k.banned = true;",
+  "    await olmSaveToServer(olmLocalKeys);",
+  "    olmRenderList(); showToast('Đã cấm key '+k.value);",
+  "    return;",
+  "  }",
+  "  if(act==='unban'){",
+  "    k.banned = false;",
+  "    await olmSaveToServer(olmLocalKeys);",
+  "    olmRenderList(); showToast('Đã bỏ cấm key '+k.value);",
+  "    return;",
+  "  }",
+  "  if(act==='extend'){",
+  "    olmExtendTargetId = id;",
+  "    document.getElementById('olmExtendModal').classList.add('show');",
+  "    return;",
+  "  }",
+  "  if(act==='resetuses'){",
+  "    olmResetTargetId = id;",
+  "    document.getElementById('olmNewMaxUses').value = k.maxUses || 1;",
+  "    document.getElementById('olmResetUsesModal').classList.add('show');",
+  "    return;",
+  "  }",
+  "});",
+  "",
+  "/* ----- Modal: Extend confirm ----- */",
+  "document.getElementById('btnOlmExtendConfirm').addEventListener('click', async ()=>{",
+  "  const k = olmLocalKeys.find(x=>x.id===olmExtendTargetId);",
+  "  if(!k){ document.getElementById('olmExtendModal').classList.remove('show'); return; }",
+  "  const amount = parseInt(document.getElementById('olmExtendAmount').value)||1;",
+  "  const unit   = document.getElementById('olmExtendUnit').value;",
+  "  const addMs  = olmMsFromUnit(amount, unit);",
+  "  if(k.expiresAt){",
+  "    k.expiresAt = new Date(new Date(k.expiresAt).getTime() + addMs).toISOString();",
+  "  } else if(k.activated && k.activatedAt){",
+  "    // key vô hạn nhưng đã kích hoạt → bắt đầu tính từ bây giờ + thêm thời gian",
+  "    k.expiresAt = new Date(Date.now() + addMs).toISOString();",
+  "  } else {",
+  "    // chưa kích hoạt → cập nhật durationAmount/Unit",
+  "    k.durationAmount = amount;",
+  "    k.durationUnit   = unit;",
+  "    showToast('Đã cập nhật thời hạn key (sẽ áp dụng khi kích hoạt lần đầu)');",
+  "    document.getElementById('olmExtendModal').classList.remove('show');",
+  "    await olmSaveToServer(olmLocalKeys);",
+  "    olmRenderList(); return;",
+  "  }",
+  "  document.getElementById('olmExtendModal').classList.remove('show');",
+  "  await olmSaveToServer(olmLocalKeys);",
+  "  olmRenderList();",
+  "  showToast('Đã gia hạn key '+k.value+' thêm '+amount+' '+unit);",
+  "});",
+  "",
+  "/* ----- Modal: Reset uses confirm ----- */",
+  "document.getElementById('btnOlmResetUsesConfirm').addEventListener('click', async ()=>{",
+  "  const k = olmLocalKeys.find(x=>x.id===olmResetTargetId);",
+  "  if(!k){ document.getElementById('olmResetUsesModal').classList.remove('show'); return; }",
+  "  const newMax = parseInt(document.getElementById('olmNewMaxUses').value)||1;",
+  "  k.maxUses  = newMax;",
+  "  k.usedCount = 0;",
+  "  document.getElementById('olmResetUsesModal').classList.remove('show');",
+  "  await olmSaveToServer(olmLocalKeys);",
+  "  olmRenderList();",
+  "  showToast('Đã reset số lần nhập key '+k.value+' (mới: '+newMax+')');",
+  "});",
+  "",
+  "/* ----- Close modals on backdrop click ----- */",
+  "document.getElementById('olmExtendModal').addEventListener('click', (e)=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });",
+  "document.getElementById('olmResetUsesModal').addEventListener('click', (e)=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });",
+  "",
+  "/* ============================================================ */",
   "function renderMiniAppPage(){",
   "  fetchMiniAppStatus();",
   "  fetchMiniAppUsers();",
@@ -7172,6 +7589,207 @@ const TELEGRAM_PAGE = [
   "  await Promise.all([loadProducts(), loadGetKeyGames(), refreshAccountSummary()]);",
   "})();",
   "</script>",
+  "",
+  "<!-- ============ OLM KEY PAGE (FULL SCREEN OVERLAY) ============ -->",
+  "<div id=\"olmPage\">",
+  "  <div class=\"olm-header\">",
+  "    <div class=\"olm-header-left\">",
+  "      <button class=\"ghost-icon-btn\" id=\"btnCloseOlmPage\" title=\"Thoát trang Server key Olm\">",
+  "        <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M19 12H5M12 5l-7 7 7 7\"/></svg>",
+  "        Thoát",
+  "      </button>",
+  "      <div>",
+  "        <div class=\"olm-title\">🔐 Server key Olm</div>",
+  "        <div class=\"olm-subtitle\">Tạo &amp; quản lý key Olm riêng biệt — ghim tài khoản, giới hạn thiết bị, gia hạn tự do</div>",
+  "      </div>",
+  "    </div>",
+  "    <nav style=\"display:flex; gap:0;\">",
+  "      <button class=\"olm-tab active\" data-olm-tab=\"create\">Tạo Key</button>",
+  "      <button class=\"olm-tab\" data-olm-tab=\"list\">Danh sách Key</button>",
+  "      <button class=\"olm-tab\" data-olm-tab=\"normal\">Key Thường</button>",
+  "      <button class=\"olm-tab\" data-olm-tab=\"premium\">Key Premium</button>",
+  "      <button class=\"olm-tab\" data-olm-tab=\"pinned\">Key đã ghim OLM</button>",
+  "    </nav>",
+  "  </div>",
+  "",
+  "  <div class=\"olm-body\">",
+  "",
+  "    <!-- ===== TAB TẠO KEY ===== -->",
+  "    <div id=\"olmTab-create\">",
+  "      <div class=\"olm-split\">",
+  "        <div>",
+  "          <div class=\"panel\">",
+  "            <h2>Tạo key ngẫu nhiên</h2>",
+  "            <p class=\"sub\">Hệ thống tự sinh key theo định dạng OLM-XXXX-XXXX-XXXX.</p>",
+  "            <label>Loại key</label>",
+  "            <div class=\"chip-toggle\">",
+  "              <input type=\"radio\" name=\"olmRandType\" id=\"olmRandNormal\" value=\"normal\" checked><label for=\"olmRandNormal\">Thường</label>",
+  "              <input type=\"radio\" name=\"olmRandType\" id=\"olmRandPremium\" value=\"premium\"><label for=\"olmRandPremium\">★ Premium</label>",
+  "            </div>",
+  "            <label style=\"margin-top:12px;\">Thời hạn key</label>",
+  "            <div class=\"chip-toggle\">",
+  "              <input type=\"radio\" name=\"olmRandExpiry\" id=\"olmRandExpNone\" value=\"none\"><label for=\"olmRandExpNone\">Không giới hạn</label>",
+  "              <input type=\"radio\" name=\"olmRandExpiry\" id=\"olmRandExpLimit\" value=\"limited\" checked><label for=\"olmRandExpLimit\">Có thời hạn</label>",
+  "            </div>",
+  "            <div id=\"olmRandExpiryFields\" style=\"margin-top:10px;\">",
+  "              <div class=\"row2\">",
+  "                <div>",
+  "                  <label>Số lượng</label>",
+  "                  <input type=\"number\" id=\"olmRandDurAmount\" value=\"1\" min=\"1\" max=\"9999\">",
+  "                </div>",
+  "                <div>",
+  "                  <label>Đơn vị</label>",
+  "                  <select id=\"olmRandDurUnit\">",
+  "                    <option value=\"minute\">Phút</option>",
+  "                    <option value=\"hour\">Giờ</option>",
+  "                    <option value=\"day\" selected>Ngày</option>",
+  "                    <option value=\"month\">Tháng</option>",
+  "                  </select>",
+  "                </div>",
+  "              </div>",
+  "            </div>",
+  "            <label style=\"margin-top:12px;\">Giới hạn số lần nhập key (thiết bị)</label>",
+  "            <input type=\"number\" id=\"olmRandMaxUses\" value=\"1\" min=\"1\" max=\"999\" placeholder=\"VD: 1\">",
+  "            <p class=\"preview-note\" style=\"margin-top:6px;\">VD: nhập 1 = chỉ 1 thiết bị được dùng key này. Lần 2 sẽ báo &quot;quá thiết bị&quot;.</p>",
+  "            <label style=\"margin-top:12px;\">Ghim tài khoản Olm vào key (tuỳ chọn)</label>",
+  "            <input type=\"text\" id=\"olmRandAccount\" placeholder=\"Để trống nếu không ghim\">",
+  "            <button class=\"btn\" style=\"margin-top:16px;\" id=\"btnOlmGenRandom\">Tạo key ngẫu nhiên</button>",
+  "          </div>",
+  "",
+  "          <div class=\"panel\" style=\"margin-top:20px;\">",
+  "            <h2>Tạo key thủ công</h2>",
+  "            <p class=\"sub\">Nhập key theo ý muốn. Định dạng tự do nhưng phải là ký tự hợp lệ.</p>",
+  "            <label>Loại key</label>",
+  "            <div class=\"chip-toggle\">",
+  "              <input type=\"radio\" name=\"olmManType\" id=\"olmManNormal\" value=\"normal\" checked><label for=\"olmManNormal\">Thường</label>",
+  "              <input type=\"radio\" name=\"olmManType\" id=\"olmManPremium\" value=\"premium\"><label for=\"olmManPremium\">★ Premium</label>",
+  "            </div>",
+  "            <label style=\"margin-top:12px;\">Giá trị key</label>",
+  "            <input type=\"text\" id=\"olmManValue\" placeholder=\"VD: OLM-MYKEY-2024\" maxlength=\"80\">",
+  "            <label style=\"margin-top:10px;\">Thời hạn key</label>",
+  "            <div class=\"chip-toggle\">",
+  "              <input type=\"radio\" name=\"olmManExpiry\" id=\"olmManExpNone\" value=\"none\"><label for=\"olmManExpNone\">Không giới hạn</label>",
+  "              <input type=\"radio\" name=\"olmManExpiry\" id=\"olmManExpLimit\" value=\"limited\" checked><label for=\"olmManExpLimit\">Có thời hạn</label>",
+  "            </div>",
+  "            <div id=\"olmManExpiryFields\" style=\"margin-top:10px;\">",
+  "              <div class=\"row2\">",
+  "                <div>",
+  "                  <label>Số lượng</label>",
+  "                  <input type=\"number\" id=\"olmManDurAmount\" value=\"1\" min=\"1\" max=\"9999\">",
+  "                </div>",
+  "                <div>",
+  "                  <label>Đơn vị</label>",
+  "                  <select id=\"olmManDurUnit\">",
+  "                    <option value=\"minute\">Phút</option>",
+  "                    <option value=\"hour\">Giờ</option>",
+  "                    <option value=\"day\" selected>Ngày</option>",
+  "                    <option value=\"month\">Tháng</option>",
+  "                  </select>",
+  "                </div>",
+  "              </div>",
+  "            </div>",
+  "            <label style=\"margin-top:12px;\">Giới hạn số lần nhập key (thiết bị)</label>",
+  "            <input type=\"number\" id=\"olmManMaxUses\" value=\"1\" min=\"1\" max=\"999\" placeholder=\"VD: 1\">",
+  "            <label style=\"margin-top:12px;\">Ghim tài khoản Olm vào key (tuỳ chọn)</label>",
+  "            <input type=\"text\" id=\"olmManAccount\" placeholder=\"Để trống nếu không ghim\">",
+  "            <button class=\"btn\" style=\"margin-top:16px;\" id=\"btnOlmGenManual\">Tạo key thủ công</button>",
+  "          </div>",
+  "        </div>",
+  "",
+  "        <div class=\"panel\">",
+  "          <h2>Key vừa tạo</h2>",
+  "          <p class=\"sub\" id=\"olmCreatedSub\">Key tạo gần đây sẽ hiện ở đây.</p>",
+  "          <div id=\"olmJustCreatedList\"></div>",
+  "        </div>",
+  "      </div>",
+  "    </div>",
+  "",
+  "    <!-- ===== TAB DANH SÁCH ===== -->",
+  "    <div id=\"olmTab-list\" style=\"display:none;\">",
+  "      <div class=\"olm-stats-row\" id=\"olmStatsRow\"></div>",
+  "      <div class=\"panel\">",
+  "        <div class=\"olm-list-filter\">",
+  "          <input type=\"text\" id=\"olmSearch\" placeholder=\"Tìm theo key hoặc tài khoản Olm...\">",
+  "          <select id=\"olmFilterStatus\">",
+  "            <option value=\"all\">Tất cả trạng thái</option>",
+  "            <option value=\"unactivated\">Chưa kích hoạt</option>",
+  "            <option value=\"active\">Đang hoạt động</option>",
+  "            <option value=\"expired\">Hết hạn</option>",
+  "            <option value=\"banned\">Bị cấm</option>",
+  "          </select>",
+  "          <select id=\"olmFilterType\">",
+  "            <option value=\"all\">Tất cả loại</option>",
+  "            <option value=\"normal\">Thường</option>",
+  "            <option value=\"premium\">Premium</option>",
+  "          </select>",
+  "        </div>",
+  "        <div id=\"olmListWrap\"></div>",
+  "      </div>",
+  "    </div>",
+  "",
+  "    <!-- ===== TAB KEY THƯỜNG ===== -->",
+  "    <div id=\"olmTab-normal\" style=\"display:none;\">",
+  "      <div class=\"panel\">",
+  "        <h2 class=\"olm-section-title\">Key Thường</h2>",
+  "        <p class=\"olm-section-sub\">Danh sách các key loại Thường đã tạo.</p>",
+  "        <div id=\"olmNormalList\"></div>",
+  "      </div>",
+  "    </div>",
+  "",
+  "    <!-- ===== TAB KEY PREMIUM ===== -->",
+  "    <div id=\"olmTab-premium\" style=\"display:none;\">",
+  "      <div class=\"panel\">",
+  "        <h2 class=\"olm-section-title\">Key Premium ★</h2>",
+  "        <p class=\"olm-section-sub\">Danh sách các key loại Premium đã tạo.</p>",
+  "        <div id=\"olmPremiumList\"></div>",
+  "      </div>",
+  "    </div>",
+  "",
+  "    <!-- ===== TAB KEY ĐÃ GHIM OLM ===== -->",
+  "    <div id=\"olmTab-pinned\" style=\"display:none;\">",
+  "      <div class=\"panel\">",
+  "        <h2 class=\"olm-section-title\">Key đã ghim tài khoản Olm</h2>",
+  "        <p class=\"olm-section-sub\">Chỉ hiển thị các key có tài khoản Olm được ghim kèm.</p>",
+  "        <div id=\"olmPinnedList\"></div>",
+  "      </div>",
+  "    </div>",
+  "",
+  "  </div>",
+  "</div>",
+  "",
+  "<!-- OLM: Modal gia hạn -->",
+  "<div class=\"modal-bg\" id=\"olmExtendModal\">",
+  "  <div class=\"modal\">",
+  "    <h3>Gia hạn key Olm</h3>",
+  "    <div class=\"row2\">",
+  "      <div><label>Số lượng</label><input type=\"number\" id=\"olmExtendAmount\" value=\"1\" min=\"1\" max=\"9999\"></div>",
+  "      <div><label>Đơn vị</label><select id=\"olmExtendUnit\">",
+  "        <option value=\"minute\">Phút</option>",
+  "        <option value=\"hour\">Giờ</option>",
+  "        <option value=\"day\" selected>Ngày</option>",
+  "        <option value=\"month\">Tháng</option>",
+  "      </select></div>",
+  "    </div>",
+  "    <div class=\"modal-actions\">",
+  "      <button class=\"btn\" id=\"btnOlmExtendConfirm\">Gia hạn</button>",
+  "      <button class=\"btn btn-ghost\" onclick=\"document.getElementById('olmExtendModal').classList.remove('show')\">Huỷ</button>",
+  "    </div>",
+  "  </div>",
+  "</div>",
+  "",
+  "<!-- OLM: Modal reset số lần nhập -->",
+  "<div class=\"modal-bg\" id=\"olmResetUsesModal\">",
+  "  <div class=\"modal\">",
+  "    <h3>Reset số lần nhập key</h3>",
+  "    <label>Đặt lại giới hạn nhập key mới</label>",
+  "    <input type=\"number\" id=\"olmNewMaxUses\" value=\"1\" min=\"1\" max=\"999\">",
+  "    <div class=\"modal-actions\">",
+  "      <button class=\"btn\" id=\"btnOlmResetUsesConfirm\">Reset</button>",
+  "      <button class=\"btn btn-ghost\" onclick=\"document.getElementById('olmResetUsesModal').classList.remove('show')\">Huỷ</button>",
+  "    </div>",
+  "  </div>",
+  "</div>",
+  "",
   "</body>",
   "</html>",
   ""
@@ -7217,7 +7835,8 @@ function defaultState(){
     getKeyGames: [],    // { id, name, logo, keyPrefix, active, createdAt, durations: [{ id, label, unit, amount, rounds }] }
     getKeySessions: {}, // { sessionId: { gameId, durationId, rounds, currentRound, done, key, createdAt, ip } }
     productGroups: [],  // { id, name, logo, active, createdAt, plans: [{ id, label, unit, amount, price, keyPrefix, maxDevices }] }
-    codeSnippets: []    // { id, name, language, code, sizeBytes, createdAt, updatedAt } — CHỈ lưu trữ, không thực thi
+    codeSnippets: [],   // { id, name, language, code, sizeBytes, createdAt, updatedAt } — CHỈ lưu trữ, không thực thi
+    olmKeys: []         // { id, value, type:'normal'|'premium', createdAt, expiresAt, durationAmount, durationUnit, maxUses, usedCount, banned, olmAccount, activated, activatedAt, status:'unactivated'|'active'|'expired'|'banned' }
   };
 }
 
@@ -7893,6 +8512,7 @@ const server = http.createServer(async (req, res)=>{
       db.discountCodes = body.discountCodes ?? db.discountCodes;
       db.bankInfo       = body.bankInfo       ?? db.bankInfo;
       db.sepayConfig    = body.sepayConfig    ?? db.sepayConfig;
+      db.olmKeys        = body.olmKeys        ?? db.olmKeys;
       saveDBDebounced();
       return sendJSON(res, 200, { ok: true, savedAt: new Date().toISOString() });
     }
@@ -9662,6 +10282,166 @@ const server = http.createServer(async (req, res)=>{
         updatedAt: snippet.updatedAt || snippet.createdAt,
         checksum : checksum
       }));
+    }
+
+    /* =====================================================================
+       OLM KEY ENDPOINTS
+       GET  /api/olm/keys              — trả toàn bộ danh sách olmKeys
+       POST /api/olm/keys              — lưu toàn bộ danh sách olmKeys (từ dashboard)
+       POST /api/olm/verify            — xác thực 1 key Olm (từ app bên ngoài)
+       POST /api/olm/extend/:id        — gia hạn key theo id
+       POST /api/olm/ban/:id           — cấm / bỏ cấm key
+       DELETE /api/olm/keys/:id        — xoá 1 key
+       POST /api/olm/reset-uses/:id    — reset số lần nhập key
+       ===================================================================== */
+
+    /* Trả danh sách key Olm */
+    if(pathname === '/api/olm/keys' && req.method === 'GET'){
+      db.olmKeys = db.olmKeys || [];
+      return sendJSON(res, 200, { ok: true, keys: db.olmKeys });
+    }
+
+    /* Lưu toàn bộ danh sách (dashboard ghi đè hoàn toàn) */
+    if(pathname === '/api/olm/keys' && req.method === 'POST'){
+      const body = await readJSONBody(req);
+      if(!Array.isArray(body.keys)){
+        return sendJSON(res, 400, { ok: false, error: 'keys_must_be_array' });
+      }
+      db.olmKeys = body.keys;
+      saveDBNow();
+      return sendJSON(res, 200, { ok: true, count: db.olmKeys.length });
+    }
+
+    /* Xác thực key Olm từ app bên ngoài */
+    if(pathname === '/api/olm/verify' && (req.method === 'POST' || req.method === 'GET')){
+      const verIp = getClientIP(req);
+      if(isRateLimited('olm_verify', verIp, 60, 60000)){
+        return sendJSON(res, 429, { valid: false, reason: 'rate_limited' });
+      }
+      let keyVal, deviceId, olmAccount;
+      if(req.method === 'GET'){
+        keyVal    = url.searchParams.get('key');
+        deviceId  = url.searchParams.get('device') || url.searchParams.get('device_id') || '';
+        olmAccount= url.searchParams.get('olm_account') || '';
+      } else {
+        const b   = await readJSONBody(req);
+        keyVal    = b.key;
+        deviceId  = b.device || b.device_id || b.deviceId || '';
+        olmAccount= b.olm_account || b.olmAccount || '';
+      }
+      if(!keyVal) return sendJSON(res, 400, { valid: false, reason: 'missing_key' });
+
+      db.olmKeys = db.olmKeys || [];
+      const k = db.olmKeys.find(x => x.value === String(keyVal).trim());
+      if(!k) return sendJSON(res, 200, { valid: false, reason: 'key_not_found' });
+
+      /* Kiểm tra bị cấm */
+      if(k.banned) return sendJSON(res, 200, { valid: false, reason: 'key_banned' });
+
+      /* Kiểm tra hết hạn */
+      if(k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()){
+        return sendJSON(res, 200, { valid: false, reason: 'key_expired', expiresAt: k.expiresAt });
+      }
+
+      /* Kiểm tra tài khoản Olm ghim */
+      if(k.olmAccount && olmAccount && k.olmAccount !== olmAccount){
+        return sendJSON(res, 200, { valid: false, reason: 'account_mismatch' });
+      }
+
+      /* Kiểm tra giới hạn thiết bị */
+      k.devices = k.devices || [];
+      deviceId = String(deviceId || '').trim().slice(0, 200);
+      if(deviceId && !k.devices.includes(deviceId)){
+        if(k.devices.length >= (k.maxUses || 1)){
+          return sendJSON(res, 200, {
+            valid: false,
+            reason: 'device_limit_exceeded',
+            devicesUsed: k.devices.length,
+            maxDevices: k.maxUses || 1
+          });
+        }
+        k.devices.push(deviceId);
+        k.usedCount = k.devices.length;
+      }
+
+      /* Kích hoạt lần đầu */
+      if(!k.activated){
+        k.activated   = true;
+        k.activatedAt = new Date().toISOString();
+        if(k.durationAmount && k.durationUnit){
+          const msMap = { minute:60000, hour:3600000, day:86400000, month:30*86400000 };
+          const ms    = k.durationAmount * (msMap[k.durationUnit] || 86400000);
+          k.expiresAt = new Date(Date.now() + ms).toISOString();
+        }
+      }
+
+      saveDBDebounced();
+      return sendJSON(res, 200, {
+        valid      : true,
+        type       : k.type || 'normal',
+        expiresAt  : k.expiresAt || null,
+        olmAccount : k.olmAccount || null,
+        devicesUsed: (k.devices || []).length,
+        maxDevices : k.maxUses || 1
+      });
+    }
+
+    /* Gia hạn key Olm */
+    const olmExtendMatch = pathname.match(/^\/api\/olm\/extend\/(.+)$/);
+    if(olmExtendMatch && req.method === 'POST'){
+      const id   = decodeURIComponent(olmExtendMatch[1]);
+      const body = await readJSONBody(req);
+      const amount = parseInt(body.amount) || 1;
+      const unit   = body.unit || 'day';
+      db.olmKeys   = db.olmKeys || [];
+      const k      = db.olmKeys.find(x => x.id === id);
+      if(!k) return sendJSON(res, 404, { ok: false, error: 'key_not_found' });
+      const msMap = { minute:60000, hour:3600000, day:86400000, month:30*86400000 };
+      const ms    = amount * (msMap[unit] || 86400000);
+      if(k.expiresAt){
+        k.expiresAt = new Date(new Date(k.expiresAt).getTime() + ms).toISOString();
+      } else {
+        k.durationAmount = amount; k.durationUnit = unit;
+      }
+      saveDBNow();
+      return sendJSON(res, 200, { ok: true, expiresAt: k.expiresAt || null });
+    }
+
+    /* Ban / unban key Olm */
+    const olmBanMatch = pathname.match(/^\/api\/olm\/ban\/(.+)$/);
+    if(olmBanMatch && req.method === 'POST'){
+      const id   = decodeURIComponent(olmBanMatch[1]);
+      const body = await readJSONBody(req);
+      db.olmKeys  = db.olmKeys || [];
+      const k     = db.olmKeys.find(x => x.id === id);
+      if(!k) return sendJSON(res, 404, { ok: false, error: 'key_not_found' });
+      k.banned    = !!body.banned;
+      saveDBNow();
+      return sendJSON(res, 200, { ok: true, banned: k.banned });
+    }
+
+    /* Xoá key Olm */
+    const olmDeleteMatch = pathname.match(/^\/api\/olm\/keys\/(.+)$/);
+    if(olmDeleteMatch && req.method === 'DELETE'){
+      const id   = decodeURIComponent(olmDeleteMatch[1]);
+      db.olmKeys  = (db.olmKeys || []).filter(x => x.id !== id);
+      saveDBNow();
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    /* Reset số lần nhập (devices) của key Olm */
+    const olmResetMatch = pathname.match(/^\/api\/olm\/reset-uses\/(.+)$/);
+    if(olmResetMatch && req.method === 'POST'){
+      const id   = decodeURIComponent(olmResetMatch[1]);
+      const body = await readJSONBody(req);
+      db.olmKeys  = db.olmKeys || [];
+      const k     = db.olmKeys.find(x => x.id === id);
+      if(!k) return sendJSON(res, 404, { ok: false, error: 'key_not_found' });
+      k.devices   = [];
+      k.usedCount = 0;
+      if(body.maxUses && parseInt(body.maxUses) > 0) k.maxUses = parseInt(body.maxUses);
+      saveDBNow();
+      return sendJSON(res, 200, { ok: true, usedCount: 0, maxUses: k.maxUses });
     }
 
     return sendJSON(res, 404, { error: 'not_found' });
